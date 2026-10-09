@@ -7,7 +7,7 @@
  *   3. Emails the full report + attachments to the league office, copying the
  *      assignor for that conference / home team (from the "Referee Report Settings" sheet)
  *   4. Emails the referee a confirmation
- * The form's conference / match / team / venue dropdowns come from the Master Schedule sheet.
+ * The form's conference dropdown comes from the same settings sheet (Assignors tab, column A).
  *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
@@ -17,7 +17,6 @@ const CONFIG = {
   OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
   CC: '',                                    // e.g. 'assignor1@example.com,assignor2@example.com'
   ROOT_FOLDER_NAME: 'APSL Referee Reports',
-  MASTER_SCHEDULE_ID: '1JJ8ZIrZOt1os-45Ned2wwq3WvQ66FeIaOEV0GW0jzqw',   // "Master Schedule 26-27"
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
 };
 
@@ -28,47 +27,10 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Conferences, teams, venues and matches for the form's dropdowns, read from the Master Schedule.
+// Conference list for the form's dropdown, from the Assignors tab of the settings sheet.
 function getSetup() {
-  const ss = SpreadsheetApp.openById(CONFIG.MASTER_SCHEDULE_ID);
-  const conferences = [];
-  ss.getSheets().forEach(sh => {
-    const rows = sh.getDataRange().getDisplayValues();
-    if (rows.length < 2) return;
-    const h = rows[0].map(x => String(x).trim().toLowerCase());
-    const col = name => h.indexOf(name);
-    const iId = col('game #'), iDate = col('date'), iTime = col('start time'), iDiv = col('division'),
-          iField = col('field'), iHome = col('home'), iAway = col('away');
-    if (iHome < 0 || iAway < 0) return;
-    const c = { name: '', teams: new Set(), venues: new Set(), matches: [] };
-    rows.slice(1).forEach((r, n) => {
-      const home = String(r[iHome] || '').trim(), away = String(r[iAway] || '').trim();
-      if (!home || !away) return;
-      if (!c.name && iDiv >= 0 && r[iDiv]) c.name = String(r[iDiv]).trim();
-      const field = iField >= 0 ? String(r[iField] || '').trim() : '';
-      c.teams.add(home); c.teams.add(away);
-      if (field && field.toUpperCase() !== 'TBD') c.venues.add(field);
-      c.matches.push({ key: sh.getName() + ':' + (n + 2), id: iId >= 0 ? String(r[iId] || '').trim() : '',
-        date: toIsoDate(iDate >= 0 ? r[iDate] : ''), time: toTime24(iTime >= 0 ? r[iTime] : ''), field, home, away });
-    });
-    if (!c.matches.length) return;
-    conferences.push({ name: c.name || sh.getName(), teams: [...c.teams].sort(), venues: [...c.venues].sort(), matches: c.matches });
-  });
-  conferences.sort((a, b) => a.name.localeCompare(b.name));
-  return { conferences };
-}
-function toIsoDate(s) {
-  const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!m) return '';
-  const y = m[3].length === 2 ? '20' + m[3] : m[3];
-  return `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-}
-function toTime24(s) {
-  const m = String(s || '').trim().match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
-  if (!m) return '';
-  let h = +m[1] % 12; if (m[3].toUpperCase() === 'PM') h += 12;
-  if (h === 0 && m[2] === '00') return '';            // 12:00 AM in the schedule means "time TBD"
-  return `${String(h).padStart(2, '0')}:${m[2]}`;
+  const rows = getSettings().getSheetByName('Assignors').getDataRange().getValues().slice(1);
+  return { conferences: [...new Set(rows.map(r => String(r[0] || '').trim()).filter(Boolean))] };
 }
 
 // Called by the form page (google.script.run). Takes a JSON string, returns {ok, error?}.
@@ -174,7 +136,8 @@ function getSettings() {
     DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
     const sh = ss.getSheets()[0].setName('Assignors');
     sh.appendRow(['Conference', 'Home team (leave blank for whole conference)', 'Assignor email(s), comma-separated']);
-    getSetup().conferences.forEach(c => sh.appendRow([c.name, '', '']));
+    ['Constitution Conference', 'Delaware River Conference', 'Mayflower Conference', 'Metropolitan Conference',
+     'Mitten Conference', 'Terminus Conference', 'Trinity Conference'].forEach(c => sh.appendRow([c, '', '']));
     sh.setFrozenRows(1); sh.autoResizeColumns(1, 3);
     props.setProperty('SETTINGS_SHEET_ID', ss.getId());
   }

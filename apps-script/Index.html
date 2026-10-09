@@ -125,22 +125,15 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <!-- 1. MATCH -->
 <section class="card">
   <h2><span class="n">1</span>Match</h2>
-  <p class="hint">Pick your conference, then your match – the details fill in from the league schedule. Change anything that was different on the day.</p>
   <div class="grid">
     <div class="full"><label for="division">Conference <span class="req">*</span></label>
-      <select id="division" required><option value="">Loading schedule…</option></select>
+      <select id="division" required><option value="">Loading…</option></select>
       <input id="divisionOther" class="other hidden" placeholder="Type the conference"></div>
-    <div class="full"><label for="matchPick">Match <span class="req">*</span></label>
-      <select id="matchPick"><option value="">Choose a conference first</option></select></div>
-    <input type="hidden" id="gameNo">
     <div><label for="gameDate">Game date <span class="req">*</span></label><input id="gameDate" type="date" required></div>
     <div><label for="kickoff">Scheduled kickoff <span class="req">*</span></label><input id="kickoff" type="time" required></div>
-    <div><label for="home">Home team <span class="req">*</span></label>
-      <select id="home" required></select><input id="homeOther" class="other hidden" placeholder="Type the home team"></div>
-    <div><label for="away">Away team <span class="req">*</span></label>
-      <select id="away" required></select><input id="awayOther" class="other hidden" placeholder="Type the away team"></div>
-    <div class="full"><label for="venue">Venue</label>
-      <select id="venue"></select><input id="venueOther" class="other hidden" placeholder="Field name and city"></div>
+    <div><label for="home">Home team <span class="req">*</span></label><input id="home" required autocomplete="off" autocapitalize="words"></div>
+    <div><label for="away">Away team <span class="req">*</span></label><input id="away" required autocomplete="off" autocapitalize="words"></div>
+    <div class="full"><label for="venue">Venue</label><input id="venue" placeholder="Field name and city" autocapitalize="words"></div>
     <div><label for="matchType">Match type</label>
       <select id="matchType"><option>Regular season</option><option>Playoff</option><option>Cup</option><option>Friendly</option></select></div>
     <div><label for="status">Match status <span class="req">*</span></label>
@@ -296,7 +289,7 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-ref-draft-v2";
+const DRAFT_KEY = "apsl-ref-draft-v3";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
 
@@ -361,11 +354,11 @@ function rows(kind) {
   });
 }
 // keep team names in row dropdowns current
-["home", "away", "homeOther", "awayOther"].forEach(id => ["input", "change"].forEach(ev => $("#" + id).addEventListener(ev, () => {
+["home", "away"].forEach(id => $("#" + id).addEventListener("input", () => {
   $$(".g-team,.k-team,.s-team").forEach(sel => {
     sel.options[0].text = val("home") || "Home"; sel.options[1].text = val("away") || "Away";
   });
-})));
+}));
 
 /* ---------- files ---------- */
 $$("input[type=file]").forEach(inp => inp.addEventListener("change", async () => {
@@ -541,7 +534,7 @@ function buildReport() {
   const L = [], H = val("home") || "Home", A = val("away") || "Away";
   const line = (k, v) => v && L.push(`${k}: ${v}`);
   L.push(`APSL REFEREE MATCH REPORT`, ``);
-  line("Game #", val("gameNo") || "not on schedule"); line("Date", val("gameDate")); line("Scheduled KO", val("kickoff")); line("Actual KO", val("actualKO"));
+  line("Date", val("gameDate")); line("Scheduled KO", val("kickoff")); line("Actual KO", val("actualKO"));
   line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", val("status"));
   L.push(``, `RESULT: ${H} ${val("homeScore") || "-"} – ${val("awayScore") || "-"} ${A}`);
   const goals = rows("goal").sort((a, b) => minuteNum(a["g-min"] || "0") - minuteNum(b["g-min"] || "0"));
@@ -604,64 +597,16 @@ function loadDraft() {
   FIELD_IDS().forEach(el => { if (d.f[el.id] != null) el.type === "checkbox" ? el.checked = d.f[el.id] : el.value = d.f[el.id]; });
   for (const k in d.rows) d.rows[k].forEach(r => addRow(k, r));
 }
-/* ---------- league schedule (served by Apps Script) ---------- */
-let SETUP = { conferences: [] };
+/* ---------- conference list (from the Referee Report Settings sheet) ---------- */
+const DEFAULT_CONFERENCES = ["Constitution Conference", "Delaware River Conference", "Mayflower Conference",
+  "Metropolitan Conference", "Mitten Conference", "Terminus Conference", "Trinity Conference"];
 const opt = (v, t) => `<option value="${esc(v)}">${esc(t ?? v)}</option>`;
-function fillSelect(id, values, placeholder) {
-  const el = $("#" + id), keep = el.value;
-  el.innerHTML = opt("", placeholder) + values.map(v => opt(v)).join("") + opt(OTHER, "Other / not listed…");
-  if ([...el.options].some(o => o.value === keep)) el.value = keep;
-  toggleOther(id);
-}
 function toggleOther(id) { const o = $("#" + id + "Other"); if (o) o.classList.toggle("hidden", $("#" + id).value !== OTHER); }
-function conf() { return SETUP.conferences.find(c => c.name === $("#division").value); }
-function matchLabel(m) {
-  const d = m.date ? new Date(m.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "No date";
-  return `${d} · ${m.home} v ${m.away}${m.id ? " (#" + m.id + ")" : ""}`;
-}
-function onConference() {
-  toggleOther("division");
-  const c = conf();
-  fillSelect("home", c ? c.teams : [], "Select home team");
-  fillSelect("away", c ? c.teams : [], "Select away team");
-  fillSelect("venue", c ? c.venues : [], "Select venue");
-  const mp = $("#matchPick");
-  if (!c) { mp.innerHTML = opt("", $("#division").value === OTHER ? "Enter the match details below" : "Choose a conference first"); return; }
-  const today = new Date().toISOString().slice(0, 10);
-  const past = c.matches.filter(m => m.date && m.date <= today).sort((a, b) => b.date.localeCompare(a.date));
-  const next = c.matches.filter(m => !m.date || m.date > today).sort((a, b) => (a.date || "9").localeCompare(b.date || "9"));
-  mp.innerHTML = opt("", "Select your match") +
-    (past.length ? `<optgroup label="Played">${past.map((m, i) => opt(m.key, matchLabel(m))).join("")}</optgroup>` : "") +
-    (next.length ? `<optgroup label="Upcoming">${next.map(m => opt(m.key, matchLabel(m))).join("")}</optgroup>` : "") +
-    opt(OTHER, "My match isn't listed");
-}
-function setSel(id, v) {
-  const el = $("#" + id); if (!v) { el.value = ""; toggleOther(id); return; }
-  if ([...el.options].some(o => o.value === v)) el.value = v; else { el.value = OTHER; $("#" + id + "Other").value = v; }
-  toggleOther(id);
-}
-function onMatch() {
-  const c = conf(), m = c && c.matches.find(x => x.key === $("#matchPick").value);
-  $("#gameNo").value = m ? m.id : "";
-  if (!m) return;
-  $("#gameDate").value = m.date || ""; $("#kickoff").value = m.time || "";
-  setSel("home", m.home); setSel("away", m.away); setSel("venue", m.field);
-  $("#home").dispatchEvent(new Event("change"));
-}
-$("#division").addEventListener("change", () => { onConference(); $("#gameNo").value = ""; });
-$("#matchPick").addEventListener("change", onMatch);
-["home", "away", "venue"].forEach(id => $("#" + id).addEventListener("change", () => toggleOther(id)));
-
+$("#division").addEventListener("change", () => toggleOther("division"));
 function startForm(setup) {
-  SETUP = setup && setup.conferences ? setup : { conferences: [] };
-  fillSelect("division", SETUP.conferences.map(c => c.name), SETUP.conferences.length ? "Select conference" : "Select conference (type it below)");
-  if (!SETUP.conferences.length) $("#division").value = OTHER;
-  onConference();
-  loadDraft();
-  // re-apply dependent selects after the draft restores the conference
-  const d = (() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; } })();
-  if (d && d.f) { onConference(); ["matchPick", "home", "away", "venue"].forEach(id => { if (d.f[id] != null) { $("#" + id).value = d.f[id]; toggleOther(id); } }); }
-  refresh();
+  const list = setup && setup.conferences && setup.conferences.length ? setup.conferences : DEFAULT_CONFERENCES;
+  $("#division").innerHTML = opt("", "Select conference") + list.map(c => opt(c)).join("") + opt(OTHER, "Other…");
+  loadDraft(); toggleOther("division"); refresh();
 }
 if (window.google && google.script && google.script.run) {
   google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
@@ -693,10 +638,10 @@ async function send(warns) {
     const out = [];
     for (const slot of ["home", "away", "supp"]) for (const [i, p] of files[slot].entries()) {
       const ext = (p.file.name.match(/\.\w+$/) || [".jpg"])[0];
-      out.push({ name: `${val("gameNo") || val("gameDate")}_${label[slot]}_${i + 1}${ext}`, type: p.file.type, data: await readB64(p.file) });
+      out.push({ name: `${val("gameDate")}_${label[slot]}_${i + 1}${ext}`, type: p.file.type, data: await readB64(p.file) });
     }
     const fields = {};
-    ["gameNo","gameDate","kickoff","division","venue","home","away","homeScore","awayScore","status","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
+    ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","status","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
     const payload = { fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
     let j;
     if (window.google && google.script && google.script.run) {        // served by Apps Script
