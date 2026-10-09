@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>APSL Referee Report</title>
+<style>
+/* ======================= CONFIG LIVES IN THE SCRIPT BELOW ======================= */
+:root{
+  --bg:#f3f4f6; --card:#ffffff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+  --brand:#0b2545; --brand-ink:#ffffff; --accent:#c8102e; --accent-soft:#fde8eb;
+  --ok:#0f7b3f; --ok-soft:#e3f5ea; --warn:#9a6700; --warn-soft:#fff6db;
+  --field:#ffffff; --focus:#2563eb; --radius:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0f17; --card:#141a24; --ink:#e5e7eb; --muted:#9ca3af; --line:#263041;
+    --brand:#0f2d57; --accent:#ff4d64; --accent-soft:#3a1219; --ok:#4ade80; --ok-soft:#0f2a1b;
+    --warn:#fbbf24; --warn-soft:#2e2408; --field:#0f141d; --focus:#60a5fa;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f17; --card:#141a24; --ink:#e5e7eb; --muted:#9ca3af; --line:#263041;
+  --brand:#0f2d57; --accent:#ff4d64; --accent-soft:#3a1219; --ok:#4ade80; --ok-soft:#0f2a1b;
+  --warn:#fbbf24; --warn-soft:#2e2408; --field:#0f141d; --focus:#60a5fa;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--brand);color:var(--brand-ink);padding:20px 16px 18px}
+header .wrap{max-width:760px;margin:0 auto}
+header small{opacity:.75;letter-spacing:.08em;text-transform:uppercase;font-size:12px;font-weight:600}
+header h1{margin:4px 0 6px;font-size:24px;line-height:1.2}
+header p{margin:0;opacity:.85;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:16px 16px 120px}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:0 0 14px}
+section.card h2{font-size:17px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+section.card h2 .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:13px;flex:none}
+.hint{color:var(--muted);font-size:13px;margin:0 0 12px}
+.grid{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+.grid.three{grid-template-columns:1fr 1fr 1fr}
+.full{grid-column:1/-1}
+@media (max-width:560px){.grid,.grid.three{grid-template-columns:1fr}}
+label{display:block;font-size:13px;font-weight:600;margin:0 0 4px}
+label .req{color:var(--accent)}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--field);
+  border:1px solid var(--line);border-radius:8px;padding:10px 11px;min-height:44px}
+textarea{min-height:96px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:transparent}
+.invalid{border-color:var(--accent)!important;background:var(--accent-soft)}
+.row-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.row{display:grid;gap:6px;align-items:end;padding:10px;border:1px dashed var(--line);border-radius:10px}
+.row.goal{grid-template-columns:1.2fr .6fr 1.6fr .7fr auto}
+.row.card{grid-template-columns:1.2fr .6fr 1.4fr .9fr 1.4fr .7fr auto}
+.row.sub{grid-template-columns:1.2fr .7fr .7fr .7fr 1fr auto}
+.row label{font-size:11px;color:var(--muted);font-weight:600}
+@media (max-width:640px){
+  .row.goal,.row.card,.row.sub{grid-template-columns:1fr 1fr}
+  .row .x{grid-column:1/-1}
+}
+button{font:inherit;cursor:pointer;border-radius:8px;min-height:44px;padding:10px 14px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink)}
+button.add{border-style:dashed;width:100%;color:var(--muted)}
+button.x{color:var(--accent);background:transparent;border-color:transparent;min-width:44px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;width:100%;font-size:17px}
+button.primary:disabled{opacity:.55;cursor:not-allowed}
+.checks{display:grid;gap:8px}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px}
+.check input{width:22px;height:22px;min-height:0;flex:none;margin:1px 0 0}
+.check span{font-size:14px}
+.check small{display:block;color:var(--muted);font-size:12px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center}
+.drop strong{display:block;font-size:15px}
+.drop .sub{color:var(--muted);font-size:13px;margin:2px 0 10px}
+.drop input[type=file]{display:none}
+.drop .pick{display:inline-block;background:var(--brand);color:#fff;border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:center}
+.thumb{position:relative;width:96px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--field);font-size:11px}
+.thumb img{display:block;width:100%;height:96px;object-fit:cover}
+.thumb .pdf{height:96px;display:grid;place-items:center;font-weight:700;color:var(--accent)}
+.thumb .meta{padding:3px 5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb button{position:absolute;top:2px;right:2px;min-height:0;width:26px;height:26px;padding:0;border-radius:50%;
+  background:rgba(0,0,0,.65);color:#fff;border:0;font-size:15px;line-height:26px}
+.budget{font-size:13px;color:var(--muted);margin-top:10px}
+.budget .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:4px}
+.budget .bar i{display:block;height:100%;background:var(--ok);width:0}
+.notice{border-radius:10px;padding:10px 12px;font-size:14px;margin:8px 0}
+.notice.warn{background:var(--warn-soft);color:var(--warn)}
+.notice.err{background:var(--accent-soft);color:var(--accent)}
+.notice.ok{background:var(--ok-soft);color:var(--ok)}
+.notice ul{margin:4px 0 0;padding-left:18px}
+.hidden{display:none!important}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.summary pre{white-space:pre-wrap;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px;max-height:340px;overflow:auto;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.done{text-align:center;padding:40px 16px}
+.done .big{font-size:52px}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <small>American Premier Soccer League</small>
+  <h1>Referee Match Report</h1>
+  <p>Due within 24 hours of the final whistle. Takes about 5 minutes. Your progress saves on this device as you go.</p>
+</div></header>
+
+<main id="app">
+
+<div id="doneView" class="card hidden" style="background:var(--card);border:1px solid var(--line);border-radius:12px">
+  <div class="done">
+    <div class="big">✅</div>
+    <h2>Report submitted</h2>
+    <p class="hint">The league office has your report and photos. A copy has been sent to your email.</p>
+    <button onclick="location.href=location.pathname">Submit another match</button>
+  </div>
+</div>
+
+<form id="f" novalidate>
+
+<!-- 1. MATCH -->
+<section class="card">
+  <h2><span class="n">1</span>Match</h2>
+  <p class="hint">As it appears on the schedule.</p>
+  <div class="grid">
+    <div><label for="gameNo">Game number <span class="req">*</span></label><input id="gameNo" inputmode="numeric" required placeholder="e.g. 106"></div>
+    <div><label for="gameDate">Game date <span class="req">*</span></label><input id="gameDate" type="date" required></div>
+    <div><label for="kickoff">Scheduled kickoff <span class="req">*</span></label><input id="kickoff" type="time" required></div>
+    <div><label for="division">Conference / division <span class="req">*</span></label>
+      <input id="division" list="divList" required placeholder="e.g. Metropolitan"><datalist id="divList"></datalist></div>
+    <div><label for="home">Home team <span class="req">*</span></label><input id="home" required autocomplete="off"></div>
+    <div><label for="away">Away team <span class="req">*</span></label><input id="away" required autocomplete="off"></div>
+    <div class="full"><label for="venue">Venue</label><input id="venue" placeholder="Field name and city"></div>
+    <div><label for="matchType">Match type</label>
+      <select id="matchType"><option>Regular season</option><option>Playoff</option><option>Cup</option><option>Friendly</option></select></div>
+    <div><label for="status">Match status <span class="req">*</span></label>
+      <select id="status" required>
+        <option value="Completed">Completed</option>
+        <option value="Abandoned">Abandoned</option>
+        <option value="Forfeit – home did not appear">Forfeit – home did not appear</option>
+        <option value="Forfeit – away did not appear">Forfeit – away did not appear</option>
+        <option value="Not played – weather/field">Not played – weather/field</option>
+      </select></div>
+  </div>
+</section>
+
+<!-- 2. OFFICIALS -->
+<section class="card">
+  <h2><span class="n">2</span>Referee crew</h2>
+  <p class="hint">You are the person submitting. Your email gets a copy of the report.</p>
+  <div class="grid">
+    <div><label for="refName">Your name <span class="req">*</span></label><input id="refName" required autocomplete="name"></div>
+    <div><label for="refRole">Your role <span class="req">*</span></label>
+      <select id="refRole" required><option>Referee</option><option>Assistant Referee</option><option>4th Official</option></select></div>
+    <div><label for="refId">USSF ID <span class="req">*</span></label><input id="refId" required inputmode="numeric" placeholder="0000-0000-0000-0000"></div>
+    <div><label for="refPhone">Phone <span class="req">*</span></label><input id="refPhone" type="tel" required autocomplete="tel"></div>
+    <div class="full"><label for="refEmail">Email <span class="req">*</span></label><input id="refEmail" type="email" required autocomplete="email"></div>
+    <div><label for="ar1">AR 1</label><input id="ar1" placeholder="Name"></div>
+    <div><label for="ar2">AR 2</label><input id="ar2" placeholder="Name"></div>
+    <div class="full"><label for="fourth">4th official (playoffs)</label><input id="fourth" placeholder="Name"></div>
+  </div>
+</section>
+
+<!-- 3. RESULT -->
+<section class="card">
+  <h2><span class="n">3</span>Result and goals</h2>
+  <div class="grid">
+    <div><label for="homeScore">Home goals <span class="req">*</span></label><input id="homeScore" type="number" min="0" max="40" inputmode="numeric" required></div>
+    <div><label for="awayScore">Away goals <span class="req">*</span></label><input id="awayScore" type="number" min="0" max="40" inputmode="numeric" required></div>
+  </div>
+  <p class="hint" style="margin-top:12px">Add each goal. Own goals count for the team that benefited.</p>
+  <div id="goals" class="row-list"></div>
+  <button type="button" class="add" data-add="goal">+ Add goal</button>
+</section>
+
+<!-- 4. DISCIPLINE -->
+<section class="card">
+  <h2><span class="n">4</span>Cards and dismissals</h2>
+  <p class="hint">Include coaches and team officials. Any red card needs a supplemental report (step 8).</p>
+  <div id="cards" class="row-list"></div>
+  <button type="button" class="add" data-add="card">+ Add card</button>
+</section>
+
+<!-- 5. SUBS -->
+<section class="card">
+  <h2><span class="n">5</span>Substitutions</h2>
+  <p class="hint">Limit: 7 per team, no re-entry, plus 1 concussion substitute. If you marked subs and minutes on the roster sheet, you can skip this.</p>
+  <div id="subs" class="row-list"></div>
+  <button type="button" class="add" data-add="sub">+ Add substitution</button>
+  <div id="subWarn"></div>
+</section>
+
+<!-- 6. MATCH CONDUCT -->
+<section class="card">
+  <h2><span class="n">6</span>Match day checks</h2>
+  <div class="grid">
+    <div><label for="physioHome">Home physio / medic</label><input id="physioHome" placeholder="Name, or leave blank if none"></div>
+    <div><label for="physioAway">Away physio / medic</label><input id="physioAway" placeholder="Name, or leave blank if none"></div>
+    <div><label for="actualKO">Actual kickoff</label><input id="actualKO" type="time"></div>
+    <div><label for="paid">Crew paid by home team at venue? <span class="req">*</span></label>
+      <select id="paid" required><option value="">Select…</option><option>Yes – in full</option><option>Partial</option><option>No</option></select></div>
+    <div class="full hidden" id="paidNoteWrap"><label for="paidNote">Payment details</label><input id="paidNote" placeholder="Amount received, who owes what"></div>
+  </div>
+  <p class="hint" style="margin:14px 0 8px">Check anything that happened:</p>
+  <div class="checks">
+    <label class="check"><input type="checkbox" id="c_lateHome"><span>Home team arrived late<small>Not ready within 30 min of scheduled time</small></span></label>
+    <label class="check"><input type="checkbox" id="c_lateAway"><span>Away team arrived late<small>Not ready within 30 min of scheduled time</small></span></label>
+    <label class="check"><input type="checkbox" id="c_noPhysio"><span>A team had no physio / medic</span></label>
+    <label class="check"><input type="checkbox" id="c_roster"><span>Roster issue<small>Roster sheet not provided to you or the opponent, ID check failed, unlisted player, more than 20 dressed</small></span></label>
+    <label class="check"><input type="checkbox" id="c_bench"><span>Bench area issue<small>More than 9 subs or 5 officials near the bench</small></span></label>
+    <label class="check"><input type="checkbox" id="c_injury"><span>Serious injury <span class="pill">needs supplemental</span></span></label>
+    <label class="check"><input type="checkbox" id="c_spectator"><span>Abusive or disruptive spectators / non-players</span></label>
+    <label class="check"><input type="checkbox" id="c_refAbuse"><span>Referee abuse or assault <span class="pill">needs supplemental</span><small>Also goes to the State President and State Referee Administrator</small></span></label>
+    <label class="check"><input type="checkbox" id="c_walkout"><span>No pre-match walkout</span></label>
+  </div>
+  <div style="margin-top:12px"><label for="notes">Anything else the league should know</label>
+    <textarea id="notes" placeholder="Field conditions, kit clash, delays, etc."></textarea></div>
+</section>
+
+<!-- 7. UPLOADS -->
+<section class="card">
+  <h2><span class="n">7</span>Roster sheets</h2>
+  <p class="hint">Photograph each team's marked-up roster sheet: starters, subs with minutes on and off, goals, and cards. Lay it flat, fill the frame, and make sure the writing is readable.</p>
+  <div class="drop" id="drop_home">
+    <strong>Home roster sheet <span class="req" style="color:var(--accent)">*</span></strong>
+    <div class="sub">Photo or PDF · add a second page if needed</div>
+    <label class="pick">Take photo / choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="home"></label>
+    <div class="thumbs" data-thumbs="home"></div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="drop" id="drop_away">
+    <strong>Away roster sheet <span class="req" style="color:var(--accent)">*</span></strong>
+    <div class="sub">Photo or PDF · add a second page if needed</div>
+    <label class="pick">Take photo / choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="away"></label>
+    <div class="thumbs" data-thumbs="away"></div>
+  </div>
+  <div class="budget"><span id="budgetText">0 MB of 9.5 MB used</span><div class="bar"><i id="budgetBar"></i></div></div>
+</section>
+
+<!-- 8. SUPPLEMENTAL -->
+<section class="card" id="suppCard">
+  <h2><span class="n">8</span>Supplemental report <span id="suppReq" class="pill hidden">required</span></h2>
+  <p class="hint" id="suppHint">Required for any red card, dismissal of a team official, serious injury, abandonment, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.</p>
+  <div class="drop">
+    <strong>Upload supplemental form</strong>
+    <div class="sub">Photo or PDF of the completed USSF form</div>
+    <label class="pick">Choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="supp"></label>
+    <div class="thumbs" data-thumbs="supp"></div>
+  </div>
+  <div style="margin-top:12px">
+    <label for="suppText">…or write the statement</label>
+    <textarea id="suppText" style="min-height:160px" placeholder="For each incident: minute, team, player name and number, what happened, the offense (e.g. violent conduct, offensive/abusive language), and how play restarted. Quote language exactly."></textarea>
+  </div>
+</section>
+
+<!-- 9. REVIEW -->
+<section class="card summary">
+  <h2><span class="n">9</span>Review and submit</h2>
+  <label class="check" style="margin-bottom:10px"><input type="checkbox" id="attest"><span>I confirm this report is accurate and complete to the best of my knowledge.</span></label>
+  <div id="problems"></div>
+  <details><summary>Preview what the league office receives</summary><pre id="preview"></pre></details>
+  <div style="height:12px"></div>
+  <button type="submit" class="primary" id="submitBtn">Submit report</button>
+  <p class="hint" style="margin-top:10px;text-align:center">After you tap submit you may see a quick “I'm not a robot” check.</p>
+</section>
+
+</form>
+</main>
+<footer>Questions: <a id="officeLink" style="color:inherit"></a></footer>
+
+<script>
+/* =============================== CONFIG =============================== */
+const CONFIG = {
+  // Where reports go. Replace with the FormSubmit random-string alias after activation to hide the address.
+  endpoint: "https://formsubmit.co/office@apslsoccer.com",
+  officeEmail: "office@apslsoccer.com",
+  cc: "",                       // e.g. "assignor1@example.com,assignor2@example.com"
+  divisions: ["Metropolitan", "Trinity"], // suggestions only; refs can type anything
+  maxSubs: 7,
+  totalUploadMB: 9.5,           // FormSubmit caps all attachments at 10 MB combined
+  imageMaxEdge: 2200,           // px; keeps handwriting legible
+  imageQuality: 0.82,
+  reportWindowHours: 24
+};
+/* ====================================================================== */
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const DRAFT_KEY = "apsl-ref-draft-v1";
+const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
+
+document.getElementById("officeLink").textContent = CONFIG.officeEmail;
+document.getElementById("officeLink").href = "mailto:" + CONFIG.officeEmail;
+$("#divList").innerHTML = CONFIG.divisions.map(d => `<option value="${d}">`).join("");
+
+if (new URLSearchParams(location.search).get("sent") === "1") {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  $("#f").classList.add("hidden");
+  $("#doneView").classList.remove("hidden");
+}
+
+/* ---------- repeating rows ---------- */
+const teamSelect = cls => `<select class="${cls}"><option value="home">${esc(val("home") || "Home")}</option><option value="away">${esc(val("away") || "Away")}</option></select>`;
+const TEMPLATES = {
+  goal: () => `
+    <div><label>Team</label>${teamSelect("g-team")}</div>
+    <div><label>#</label><input class="g-num" inputmode="numeric"></div>
+    <div><label>Scorer</label><input class="g-name" placeholder="Name or OG"></div>
+    <div><label>Min</label><input class="g-min" inputmode="numeric" placeholder="45+2"></div>
+    <button type="button" class="x" aria-label="Remove">✕</button>`,
+  card: () => `
+    <div><label>Team</label>${teamSelect("k-team")}</div>
+    <div><label>#</label><input class="k-num" inputmode="numeric" placeholder="or Coach"></div>
+    <div><label>Name</label><input class="k-name"></div>
+    <div><label>Card</label><select class="k-type"><option>Yellow</option><option>Second yellow (red)</option><option>Red</option></select></div>
+    <div><label>Reason</label><select class="k-reason">
+      <option>Unsporting behavior</option><option>Dissent</option><option>Persistent infringement</option>
+      <option>Delaying restart</option><option>Failure to respect distance</option><option>Entering/leaving without permission</option>
+      <option>Serious foul play</option><option>Violent conduct</option><option>Spitting</option>
+      <option>Denying obvious goal-scoring opportunity</option><option>Offensive, insulting or abusive language</option>
+      <option>Team official misconduct</option><option>Other</option></select></div>
+    <div><label>Min</label><input class="k-min" inputmode="numeric"></div>
+    <button type="button" class="x" aria-label="Remove">✕</button>`,
+  sub: () => `
+    <div><label>Team</label>${teamSelect("s-team")}</div>
+    <div><label>On #</label><input class="s-on" inputmode="numeric"></div>
+    <div><label>Off #</label><input class="s-off" inputmode="numeric"></div>
+    <div><label>Min</label><input class="s-min" inputmode="numeric"></div>
+    <div><label>Type</label><select class="s-type"><option>Normal</option><option>Concussion</option><option>Additional (opp. concussion)</option></select></div>
+    <button type="button" class="x" aria-label="Remove">✕</button>`
+};
+const LISTS = { goal: "#goals", card: "#cards", sub: "#subs" };
+
+function addRow(kind, data) {
+  const div = document.createElement("div");
+  div.className = "row " + kind;
+  div.innerHTML = TEMPLATES[kind]();
+  if (data) div.querySelectorAll("input,select").forEach(el => { const k = el.className; if (data[k] != null) el.value = data[k]; });
+  $(LISTS[kind]).appendChild(div);
+  return div;
+}
+document.addEventListener("click", e => {
+  const add = e.target.closest("[data-add]");
+  if (add) { const r = addRow(add.dataset.add); r.querySelector("input")?.focus(); refresh(); }
+  if (e.target.matches(".row .x")) { e.target.closest(".row").remove(); refresh(); }
+});
+function rows(kind) {
+  return $$(LISTS[kind] + " .row").map(r => {
+    const o = {}; r.querySelectorAll("input,select").forEach(el => o[el.className] = el.value.trim()); return o;
+  });
+}
+// keep team names in row dropdowns current
+["home", "away"].forEach(id => $("#" + id).addEventListener("input", () => {
+  $$(".g-team,.k-team,.s-team").forEach(sel => {
+    sel.options[0].text = val("home") || "Home"; sel.options[1].text = val("away") || "Away";
+  });
+}));
+
+/* ---------- files ---------- */
+$$("input[type=file]").forEach(inp => inp.addEventListener("change", async () => {
+  const slot = inp.dataset.slot;
+  for (const f of inp.files) {
+    const prepared = await prepareFile(f);
+    files[slot].push(prepared);
+  }
+  inp.value = "";
+  renderThumbs(slot); refresh();
+}));
+
+async function prepareFile(f) {
+  if (f.type.startsWith("image/") && f.type !== "image/gif") {
+    try {
+      const img = await loadImage(f);
+      const scale = Math.min(1, CONFIG.imageMaxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", CONFIG.imageQuality));
+      URL.revokeObjectURL(img.src);
+      if (blob && blob.size < f.size) {
+        const nf = new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+        return { file: nf, url: URL.createObjectURL(nf), kind: "img" };
+      }
+    } catch (e) { /* browser can't decode (e.g. HEIC on desktop) – send original */ }
+    return { file: f, url: URL.createObjectURL(f), kind: "img" };
+  }
+  return { file: f, url: null, kind: f.type === "application/pdf" ? "pdf" : "file" };
+}
+function loadImage(f) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
+}
+function renderThumbs(slot) {
+  const box = $(`[data-thumbs="${slot}"]`);
+  box.innerHTML = "";
+  files[slot].forEach((p, i) => {
+    const d = document.createElement("div"); d.className = "thumb";
+    d.innerHTML = (p.kind === "img" ? `<img alt="">` : `<div class="pdf">${p.kind === "pdf" ? "PDF" : "FILE"}</div>`) +
+      `<div class="meta"></div><button type="button" aria-label="Remove">✕</button>`;
+    if (p.kind === "img") d.querySelector("img").src = p.url;
+    d.querySelector(".meta").textContent = mb(p.file.size) + " · " + p.file.name;
+    d.querySelector("button").onclick = () => { files[slot].splice(i, 1); renderThumbs(slot); refresh(); };
+    box.appendChild(d);
+  });
+}
+const totalBytes = () => Object.values(files).flat().reduce((s, p) => s + p.file.size, 0);
+const mb = b => (b / 1048576).toFixed(1) + " MB";
+
+/* ---------- helpers ---------- */
+function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ""; }
+function chk(id) { return document.getElementById(id).checked; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function minuteOk(m) { return /^\d{1,3}(\+\d{1,2})?$/.test(m) && parseInt(m) >= 1 && parseInt(m) <= 130; }
+function minuteNum(m) { const [a, b] = m.split("+"); return parseInt(a) + (b ? parseInt(b) / 100 : 0); }
+const teamName = t => t === "home" ? (val("home") || "Home") : (val("away") || "Away");
+const isRed = c => c["k-type"] !== "Yellow";
+
+/* ---------- validation ---------- */
+function validate() {
+  const errors = [], warns = [];
+  $$(".invalid").forEach(el => el.classList.remove("invalid"));
+  const bad = (id, msg) => { document.getElementById(id)?.classList.add("invalid"); errors.push(msg); };
+
+  const required = { gameNo: "Game number", gameDate: "Game date", kickoff: "Scheduled kickoff", division: "Conference/division",
+    home: "Home team", away: "Away team", refName: "Your name", refId: "USSF ID", refPhone: "Phone", refEmail: "Email", paid: "Payment status" };
+  for (const [id, label] of Object.entries(required)) if (!val(id)) bad(id, `${label} is missing`);
+  if (val("refEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("refEmail"))) bad("refEmail", "Email looks invalid");
+  if (val("home") && val("home").toLowerCase() === val("away").toLowerCase()) bad("away", "Home and away team are the same");
+  if (val("refId") && val("refId").replace(/\D/g, "").length < 8) warns.push("USSF ID looks short – double-check it");
+
+  const played = val("status") === "Completed" || val("status") === "Abandoned";
+  if (played) {
+    if (val("homeScore") === "") bad("homeScore", "Home score is missing");
+    if (val("awayScore") === "") bad("awayScore", "Away score is missing");
+  }
+
+  // dates
+  if (val("gameDate")) {
+    const ko = new Date(val("gameDate") + "T" + (val("kickoff") || "12:00"));
+    const now = new Date();
+    if (ko - now > 3600e3) bad("gameDate", "Game date is in the future");
+    const hrs = (now - ko) / 3600e3;
+    if (hrs > CONFIG.reportWindowHours + 2) warns.push(`This report is about ${Math.round(hrs)} hours after kickoff – reports are due within ${CONFIG.reportWindowHours} hours`);
+  }
+
+  // goals
+  const goals = rows("goal");
+  goals.forEach((g, i) => { if (!minuteOk(g["g-min"])) errors.push(`Goal ${i + 1}: minute is missing or invalid`); });
+  if (played && goals.length) {
+    const h = goals.filter(g => g["g-team"] === "home").length, a = goals.length - h;
+    if (val("homeScore") !== "" && (h !== +val("homeScore") || a !== +val("awayScore")))
+      warns.push(`Goals listed (${h}–${a}) don't match the final score (${val("homeScore")}–${val("awayScore")})`);
+  } else if (played && (+val("homeScore") + +val("awayScore")) > 0) {
+    warns.push("Score is above zero but no goal scorers are listed");
+  }
+
+  // cards
+  const cards = rows("card");
+  cards.forEach((c, i) => {
+    if (!c["k-num"] && !c["k-name"]) errors.push(`Card ${i + 1}: add a number or name`);
+    if (!minuteOk(c["k-min"])) errors.push(`Card ${i + 1}: minute is missing or invalid`);
+  });
+  const seen = {};
+  cards.forEach(c => {
+    const key = c["k-team"] + "#" + (c["k-num"] || c["k-name"]).toLowerCase();
+    if (c["k-type"] === "Yellow") { seen[key] = (seen[key] || 0) + 1; if (seen[key] === 2) warns.push(`${teamName(c["k-team"])} ${c["k-num"] ? "#" + c["k-num"] : c["k-name"]} has two separate yellows – log the second as "Second yellow (red)"`); }
+  });
+
+  // subs
+  const subs = rows("sub"); const subMsgs = [];
+  subs.forEach((s, i) => { if (!s["s-on"] || !s["s-off"] || !minuteOk(s["s-min"])) errors.push(`Substitution ${i + 1}: on #, off # and minute are needed`); });
+  ["home", "away"].forEach(t => {
+    const ts = subs.filter(s => s["s-team"] === t);
+    const normal = ts.filter(s => s["s-type"] === "Normal").length;
+    const conc = ts.filter(s => s["s-type"] === "Concussion").length;
+    if (normal > CONFIG.maxSubs) subMsgs.push(`${teamName(t)} used ${normal} normal subs (limit ${CONFIG.maxSubs})`);
+    if (conc > 1) subMsgs.push(`${teamName(t)} used ${conc} concussion subs (limit 1)`);
+    const addl = ts.filter(s => s["s-type"].startsWith("Additional")).length;
+    const oppConc = subs.filter(s => s["s-team"] !== t && s["s-type"] === "Concussion").length;
+    if (addl > oppConc) subMsgs.push(`${teamName(t)} used an additional sub without the opponent using a concussion sub`);
+    const offIds = new Set(ts.map(s => s["s-off"]));
+    ts.forEach(s => { if (offIds.has(s["s-on"]) && s["s-type"] !== "Concussion") subMsgs.push(`${teamName(t)} #${s["s-on"]} re-entered after being subbed off (no re-entry)`); });
+  });
+  $("#subWarn").innerHTML = subMsgs.length ? `<div class="notice warn">Possible rule violation – the office will review:<ul>${subMsgs.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : "";
+  subMsgs.forEach(m => warns.push(m));
+
+  // uploads
+  const notPlayed = val("status").startsWith("Not played");
+  if (!notPlayed && !val("status").includes("home did not") && !files.home.length) errors.push("Home roster sheet photo is missing");
+  if (!notPlayed && !val("status").includes("away did not") && !files.away.length) errors.push("Away roster sheet photo is missing");
+  const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
+  if (tb > cap) errors.push(`Attachments total ${mb(tb)} – remove something to get under ${CONFIG.totalUploadMB} MB`);
+
+  // supplemental
+  const reasons = suppReasons(cards);
+  const hasSupp = files.supp.length || val("suppText").length >= 40;
+  if (reasons.length && !hasSupp) { bad("suppText", "Supplemental report needed for: " + reasons.join(", ")); }
+
+  // physio consistency
+  if (!chk("c_noPhysio") && (!val("physioHome") || !val("physioAway")) && played) warns.push("A physio name is blank – enter it, or tick “A team had no physio”");
+
+  if (!chk("attest")) errors.push("Tick the confirmation box");
+  return { errors, warns, reasons };
+}
+function suppReasons(cards = rows("card")) {
+  const r = [];
+  const reds = cards.filter(isRed);
+  if (reds.length) r.push(`${reds.length} red card${reds.length > 1 ? "s" : ""}`);
+  if (chk("c_injury")) r.push("serious injury");
+  if (val("status") === "Abandoned") r.push("abandoned match");
+  if (chk("c_refAbuse")) r.push("referee abuse");
+  return r;
+}
+
+/* ---------- report text ---------- */
+function buildReport() {
+  const L = [], H = val("home") || "Home", A = val("away") || "Away";
+  const line = (k, v) => v && L.push(`${k}: ${v}`);
+  L.push(`APSL REFEREE MATCH REPORT`, ``);
+  line("Game #", val("gameNo")); line("Date", val("gameDate")); line("Scheduled KO", val("kickoff")); line("Actual KO", val("actualKO"));
+  line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", val("status"));
+  L.push(``, `RESULT: ${H} ${val("homeScore") || "-"} – ${val("awayScore") || "-"} ${A}`);
+  const goals = rows("goal").sort((a, b) => minuteNum(a["g-min"] || "0") - minuteNum(b["g-min"] || "0"));
+  if (goals.length) { L.push(``, `GOALS`); goals.forEach(g => L.push(`  ${g["g-min"]}'  ${teamName(g["g-team"])}  ${g["g-num"] ? "#" + g["g-num"] + " " : ""}${g["g-name"]}`)); }
+  const cards = rows("card");
+  if (cards.length) { L.push(``, `CARDS`); cards.forEach(c => L.push(`  ${c["k-min"]}'  ${c["k-type"].toUpperCase()}  ${teamName(c["k-team"])}  ${c["k-num"] ? "#" + c["k-num"] + " " : ""}${c["k-name"]} – ${c["k-reason"]}`)); }
+  const subs = rows("sub");
+  if (subs.length) { L.push(``, `SUBSTITUTIONS`); subs.forEach(s => L.push(`  ${s["s-min"]}'  ${teamName(s["s-team"])}  #${s["s-on"]} on for #${s["s-off"]}${s["s-type"] !== "Normal" ? " (" + s["s-type"] + ")" : ""}`)); }
+  L.push(``, `CREW`);
+  line("Submitted by", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")} · ${val("refEmail")}`);
+  line("AR1", val("ar1")); line("AR2", val("ar2")); line("4th", val("fourth"));
+  line("Paid at venue", val("paid") + (val("paidNote") ? " – " + val("paidNote") : ""));
+  L.push(``, `MATCH DAY`);
+  line(`Physio (${H})`, val("physioHome") || "none listed"); line(`Physio (${A})`, val("physioAway") || "none listed");
+  const flags = [["c_lateHome", `${H} late (30+ min)`], ["c_lateAway", `${A} late (30+ min)`], ["c_noPhysio", "Team without physio"],
+    ["c_roster", "Roster issue"], ["c_bench", "Bench area issue"], ["c_injury", "Serious injury"], ["c_spectator", "Spectator/non-player misconduct"],
+    ["c_refAbuse", "REFEREE ABUSE/ASSAULT"], ["c_walkout", "No walkout"]].filter(([id]) => chk(id)).map(([, t]) => t);
+  L.push(`  Flags: ${flags.length ? flags.join("; ") : "none"}`);
+  if (val("notes")) L.push(``, `NOTES`, val("notes"));
+  if (val("suppText")) L.push(``, `SUPPLEMENTAL STATEMENT`, val("suppText"));
+  const att = [["Home roster", files.home], ["Away roster", files.away], ["Supplemental", files.supp]].filter(([, a]) => a.length)
+    .map(([k, a]) => `${k}: ${a.length} file${a.length > 1 ? "s" : ""}`);
+  L.push(``, `ATTACHMENTS: ${att.join(" · ") || "none"}`);
+  return L.join("\n");
+}
+
+/* ---------- UI refresh, drafts ---------- */
+let saveT;
+function refresh() {
+  const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
+  $("#budgetText").textContent = `${mb(tb)} of ${CONFIG.totalUploadMB} MB used`;
+  $("#budgetBar").style.width = Math.min(100, tb / cap * 100) + "%";
+  $("#budgetBar").style.background = tb > cap ? "var(--accent)" : "var(--ok)";
+  $("#paidNoteWrap").classList.toggle("hidden", !val("paid") || val("paid").startsWith("Yes"));
+  const reasons = suppReasons();
+  $("#suppReq").classList.toggle("hidden", !reasons.length);
+  $("#suppHint").innerHTML = reasons.length
+    ? `<strong style="color:var(--accent)">Required because of: ${esc(reasons.join(", "))}.</strong> Upload a completed USSF Supplemental Referee Report, or write the statement here.`
+    : "Required for any red card, dismissal of a team official, serious injury, abandonment, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.";
+  $("#preview").textContent = buildReport();
+  clearTimeout(saveT); saveT = setTimeout(saveDraft, 400);
+}
+document.addEventListener("input", refresh);
+document.addEventListener("change", refresh);
+
+const FIELD_IDS = () => $$("#f input[id],#f select[id],#f textarea[id]").filter(el => el.type !== "file");
+function saveDraft() {
+  const d = { f: {}, rows: { goal: rows("goal"), card: rows("card"), sub: rows("sub") } };
+  FIELD_IDS().forEach(el => d.f[el.id] = el.type === "checkbox" ? el.checked : el.value);
+  delete d.f.attest;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {}
+}
+function loadDraft() {
+  let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
+  if (!d) {   // remember ref identity between matches
+    try { const me = JSON.parse(localStorage.getItem("apsl-ref-me") || "null"); if (me) for (const k in me) document.getElementById(k).value = me[k]; } catch (e) {}
+    return;
+  }
+  FIELD_IDS().forEach(el => { if (d.f[el.id] != null) el.type === "checkbox" ? el.checked = d.f[el.id] : el.value = d.f[el.id]; });
+  for (const k in d.rows) d.rows[k].forEach(r => addRow(k, r));
+}
+loadDraft(); refresh();
+
+/* ---------- submit ---------- */
+$("#f").addEventListener("submit", e => {
+  e.preventDefault();
+  const { errors, warns } = validate();
+  const box = $("#problems");
+  box.innerHTML = "";
+  if (errors.length) box.innerHTML += `<div class="notice err"><strong>Fix before submitting:</strong><ul>${errors.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>`;
+  if (warns.length) box.innerHTML += `<div class="notice warn"><strong>Check these:</strong><ul>${warns.map(m => `<li>${esc(m)}</li>`).join("")}</ul>${errors.length ? "" : "If they're correct, tap Submit again."}</div>`;
+  if (errors.length) { box.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  const sig = warns.join("|");
+  if (warns.length && box.dataset.ack !== sig) { box.dataset.ack = sig; box.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  send(warns);
+});
+
+function send(warns) {
+  try { localStorage.setItem("apsl-ref-me", JSON.stringify({ refName: val("refName"), refId: val("refId"), refPhone: val("refPhone"), refEmail: val("refEmail") })); } catch (e) {}
+  const btn = $("#submitBtn"); btn.disabled = true; btn.textContent = "Sending…";
+  const H = val("home"), A = val("away"), reasons = suppReasons();
+  const out = document.createElement("form");
+  out.method = "POST"; out.action = CONFIG.endpoint; out.enctype = "multipart/form-data"; out.style.display = "none";
+  const put = (name, value) => { const i = document.createElement("input"); i.type = "hidden"; i.name = name; i.value = value; out.appendChild(i); };
+  const flag = reasons.length ? " [SUPPLEMENTAL: " + reasons.join(", ") + "]" : "";
+  put("_subject", `Ref Report #${val("gameNo")} – ${H} ${val("homeScore")}-${val("awayScore")} ${A} (${val("gameDate")})${flag}`);
+  put("_template", "table");
+  put("_next", location.origin + location.pathname + "?sent=1");
+  put("_replyto", val("refEmail"));
+  put("_autoresponse", `Thanks ${val("refName")} – the APSL office received your report for game #${val("gameNo")}, ${H} v ${A}. Reply to this email if anything needs correcting.`);
+  if (CONFIG.cc) put("_cc", CONFIG.cc);
+  put("email", val("refEmail"));
+  put("Game", `#${val("gameNo")} · ${val("gameDate")} · ${val("division")}`);
+  put("Result", `${H} ${val("homeScore")} – ${val("awayScore")} ${A}`);
+  put("Status", val("status"));
+  put("Referee", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")}`);
+  put("Supplemental required", reasons.length ? reasons.join(", ") : "No");
+  put("Validator notes", warns.length ? warns.join(" | ") : "None");
+  put("Full report", buildReport());
+  // attachments – one input per file, prefixed so the office can tell them apart
+  let n = 0;
+  const label = { home: "HOME-roster", away: "AWAY-roster", supp: "SUPPLEMENTAL" };
+  const tag = `G${val("gameNo")}`;
+  for (const slot of ["home", "away", "supp"]) files[slot].forEach((p, i) => {
+    const ext = (p.file.name.match(/\.\w+$/) || [".jpg"])[0];
+    const renamed = new File([p.file], `${tag}_${label[slot]}_${i + 1}${ext}`, { type: p.file.type });
+    const inp = document.createElement("input"); inp.type = "file"; inp.name = `attachment${++n}`;
+    const dt = new DataTransfer(); dt.items.add(renamed); inp.files = dt.files;
+    out.appendChild(inp);
+  });
+  document.body.appendChild(out);
+  out.submit();
+}
+</script>
+</body>
+</html>
