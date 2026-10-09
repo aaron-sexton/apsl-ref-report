@@ -274,7 +274,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <script>
 /* =============================== CONFIG =============================== */
 const CONFIG = {
-  // Apps Script web app URL (Deploy → Web app). Ends in /exec.
+  // Only used if this page is hosted outside Apps Script: the web app URL ending in /exec.
   endpoint: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
   officeEmail: "office@apslsoccer.com",
   divisions: ["Metropolitan", "Trinity"], // suggestions only; refs can type anything
@@ -599,7 +599,6 @@ async function send(warns) {
   const btn = $("#submitBtn"), status = $("#sendStatus");
   btn.disabled = true; btn.textContent = "Sending…"; status.innerHTML = "";
   try {
-    if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) throw new Error("This page isn't connected to the league's server yet.");
     const label = { home: "HOME-roster", away: "AWAY-roster", supp: "SUPPLEMENTAL" };
     const out = [];
     for (const slot of ["home", "away", "supp"]) for (const [i, p] of files[slot].entries()) {
@@ -609,8 +608,14 @@ async function send(warns) {
     const fields = {};
     ["gameNo","gameDate","kickoff","division","home","away","homeScore","awayScore","status","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
     const payload = { fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
-    const res = await fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-    const j = await res.json().catch(() => ({ ok: false, error: "Unexpected response from server." }));
+    let j;
+    if (window.google && google.script && google.script.run) {        // served by Apps Script
+      j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(new Error(e && e.message || "Upload failed – check your connection."))).submitReport(JSON.stringify(payload)));
+    } else {                                                           // hosted elsewhere
+      if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) throw new Error("This page isn't connected to the league's server yet.");
+      const res = await fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+      j = await res.json().catch(() => ({ ok: false, error: "Unexpected response from server." }));
+    }
     if (!j.ok) throw new Error(j.error || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
     $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);

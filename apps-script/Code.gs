@@ -1,12 +1,13 @@
 /**
  * APSL Referee Report – backend (Google Apps Script web app)
  *
- * Receives submissions from the referee report page, then:
+ * Serves the referee report page (Index.html) and handles each submission:
  *   1. Saves roster photos / supplementals to a Drive folder (one subfolder per game)
  *   2. Appends a row to a "Referee Reports Log" sheet
  *   3. Emails the full report + attachments to the league office
  *   4. Emails the referee a confirmation
  *
+ * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
  */
 
@@ -17,10 +18,22 @@ const CONFIG = {
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
 };
 
-function doPost(e) {
+// Serves the referee form. The web app URL is the link you give referees.
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('APSL Referee Report')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// Called by the form page (google.script.run). Takes a JSON string, returns {ok, error?}.
+function submitReport(payloadJson) { return handle(JSON.parse(payloadJson)); }
+
+// Still accepts POSTs, so a copy of the page hosted elsewhere (e.g. GitHub Pages) also works.
+function doPost(e) { return json(handle(JSON.parse(e.postData.contents))); }
+
+function handle(data) {
   try {
-    const data = JSON.parse(e.postData.contents);
-    if (data.website) return json({ ok: true });            // honeypot – silently drop bots
+    if (data.website) return { ok: true };                   // honeypot – silently drop bots
     validate(data);
 
     const root = getRootFolder();
@@ -63,15 +76,12 @@ function doPost(e) {
         name: 'APSL Referee Reports',
       });
     }
-    return json({ ok: true, folder: gameFolder.getUrl() });
+    return { ok: true };
   } catch (err) {
     console.error(err);
-    return json({ ok: false, error: String(err.message || err) });
+    return { ok: false, error: String(err.message || err) };
   }
 }
-
-// Lets you open the web app URL in a browser to confirm it's live.
-function doGet() { return json({ ok: true, service: 'APSL referee report backend' }); }
 
 /* ---------------- helpers ---------------- */
 function validate(d) {
