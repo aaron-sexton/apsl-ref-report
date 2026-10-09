@@ -1,0 +1,114 @@
+/**
+ * APSL Referee Report – backend (Google Apps Script web app)
+ *
+ * Receives submissions from the referee report page, then:
+ *   1. Saves roster photos / supplementals to a Drive folder (one subfolder per game)
+ *   2. Appends a row to a "Referee Reports Log" sheet
+ *   3. Emails the full report + attachments to the league office
+ *   4. Emails the referee a confirmation
+ *
+ * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
+ */
+
+const CONFIG = {
+  OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
+  CC: '',                                    // e.g. 'assignor1@example.com,assignor2@example.com'
+  ROOT_FOLDER_NAME: 'APSL Referee Reports',
+  MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
+};
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.website) return json({ ok: true });            // honeypot – silently drop bots
+    validate(data);
+
+    const root = getRootFolder();
+    const f = data.fields;
+    const folderName = `G${clean(f.gameNo)} · ${clean(f.gameDate)} · ${clean(f.home)} v ${clean(f.away)}`;
+    const gameFolder = root.createFolder(folderName);
+
+    // Decode and save attachments
+    const blobs = (data.files || []).map(file =>
+      Utilities.newBlob(Utilities.base64Decode(file.data), file.type || 'application/octet-stream', file.name));
+    const total = blobs.reduce((s, b) => s + b.getBytes().length, 0);
+    if (total > CONFIG.MAX_TOTAL_BYTES) throw new Error('Attachments are too large (max 22 MB).');
+    blobs.forEach(b => gameFolder.createFile(b));
+    const reportFile = gameFolder.createFile(`G${clean(f.gameNo)}_report.txt`, data.report, MimeType.PLAIN_TEXT);
+
+    // Log row
+    logRow([new Date(), f.gameNo, f.gameDate, f.division, f.home, f.homeScore, f.awayScore, f.away, f.status,
+      f.refName, f.refId, f.refEmail, data.supplementalReasons || 'No', data.warnings || '', blobs.length, gameFolder.getUrl()]);
+
+    // Office email
+    const flag = data.supplementalReasons ? ` [SUPPLEMENTAL: ${data.supplementalReasons}]` : '';
+    const subject = `Ref Report #${f.gameNo} – ${f.home} ${f.homeScore}-${f.awayScore} ${f.away} (${f.gameDate})${flag}`;
+    const html =
+      `<p><a href="${gameFolder.getUrl()}">Open this game's folder in Drive</a></p>` +
+      (data.warnings ? `<p style="background:#fff6db;padding:8px;border-radius:6px"><b>Validator notes:</b> ${escapeHtml(data.warnings)}</p>` : '') +
+      `<pre style="font:13px/1.45 Menlo,Consolas,monospace;white-space:pre-wrap">${escapeHtml(data.report)}</pre>`;
+    const mail = { to: CONFIG.OFFICE_EMAIL, subject, htmlBody: html, body: data.report, attachments: blobs, name: 'APSL Referee Reports' };
+    if (isEmail(f.refEmail)) mail.replyTo = f.refEmail;
+    if (CONFIG.CC) mail.cc = CONFIG.CC;
+    MailApp.sendEmail(mail);
+
+    // Referee confirmation
+    if (isEmail(f.refEmail)) {
+      MailApp.sendEmail({
+        to: f.refEmail,
+        subject: `Received: APSL report for game #${f.gameNo}`,
+        body: `Thanks ${f.refName} – the APSL office received your report for game #${f.gameNo}, ${f.home} v ${f.away}.\n\n` +
+              `If anything needs correcting, email ${CONFIG.OFFICE_EMAIL.includes('apslsoccer') ? CONFIG.OFFICE_EMAIL : 'office@apslsoccer.com'}.\n\n` +
+              `Your report:\n\n${data.report}`,
+        name: 'APSL Referee Reports',
+      });
+    }
+    return json({ ok: true, folder: gameFolder.getUrl() });
+  } catch (err) {
+    console.error(err);
+    return json({ ok: false, error: String(err.message || err) });
+  }
+}
+
+// Lets you open the web app URL in a browser to confirm it's live.
+function doGet() { return json({ ok: true, service: 'APSL referee report backend' }); }
+
+/* ---------------- helpers ---------------- */
+function validate(d) {
+  const f = d && d.fields;
+  if (!f) throw new Error('Missing report fields.');
+  ['gameNo', 'gameDate', 'home', 'away', 'refName', 'refId', 'refEmail'].forEach(k => {
+    if (!f[k] || !String(f[k]).trim()) throw new Error(`Missing ${k}.`);
+  });
+  if (!d.report) throw new Error('Missing report text.');
+}
+function getRootFolder() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('ROOT_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const folder = DriveApp.createFolder(CONFIG.ROOT_FOLDER_NAME);
+  props.setProperty('ROOT_FOLDER_ID', folder.getId());
+  return folder;
+}
+function logRow(row) { getLog().getSheets()[0].appendRow(row); }
+function getLog() {
+  const props = PropertiesService.getScriptProperties();
+  let ss, id = props.getProperty('LOG_SHEET_ID');
+  if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) {} }
+  if (!ss) {
+    ss = SpreadsheetApp.create('Referee Reports Log');
+    DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
+    ss.getSheets()[0].appendRow(['Received', 'Game #', 'Date', 'Division', 'Home', 'H', 'A', 'Away', 'Status',
+      'Referee', 'USSF ID', 'Ref email', 'Supplemental', 'Validator notes', 'Files', 'Folder']);
+    ss.getSheets()[0].setFrozenRows(1);
+    props.setProperty('LOG_SHEET_ID', ss.getId());
+  }
+  return ss;
+}
+function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function clean(s) { return String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim(); }
+function isEmail(s) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s || '')); }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// Run once from the editor to grant permissions and create the Drive folder + log sheet.
+function setup() { getRootFolder(); getLog(); MailApp.getRemainingDailyQuota(); }

@@ -113,8 +113,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div class="done">
     <div class="big">✅</div>
     <h2>Report submitted</h2>
-    <p class="hint">The league office has your report and photos. A copy has been sent to your email.</p>
-    <button onclick="location.href=location.pathname">Submit another match</button>
+    <p class="hint">The league office has your report and photos. A confirmation is on its way to your email.</p>
+    <button onclick="location.reload()">Submit another match</button>
   </div>
 </div>
 
@@ -236,7 +236,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
     <label class="pick">Take photo / choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="away"></label>
     <div class="thumbs" data-thumbs="away"></div>
   </div>
-  <div class="budget"><span id="budgetText">0 MB of 9.5 MB used</span><div class="bar"><i id="budgetBar"></i></div></div>
+  <div class="budget"><span id="budgetText">0 MB used</span><div class="bar"><i id="budgetBar"></i></div></div>
 </section>
 
 <!-- 8. SUPPLEMENTAL -->
@@ -263,7 +263,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <details><summary>Preview what the league office receives</summary><pre id="preview"></pre></details>
   <div style="height:12px"></div>
   <button type="submit" class="primary" id="submitBtn">Submit report</button>
-  <p class="hint" style="margin-top:10px;text-align:center">After you tap submit you may see a quick “I'm not a robot” check.</p>
+  <input type="text" name="website" id="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+  <div id="sendStatus"></div>
 </section>
 
 </form>
@@ -273,13 +274,12 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <script>
 /* =============================== CONFIG =============================== */
 const CONFIG = {
-  // Where reports go. Replace with the FormSubmit random-string alias after activation to hide the address.
-  endpoint: "https://formsubmit.co/sextonaaron12@gmail.com",   // TESTING – switch back to office@apslsoccer.com
+  // Apps Script web app URL (Deploy → Web app). Ends in /exec.
+  endpoint: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
   officeEmail: "office@apslsoccer.com",
-  cc: "",                       // e.g. "assignor1@example.com,assignor2@example.com"
   divisions: ["Metropolitan", "Trinity"], // suggestions only; refs can type anything
   maxSubs: 7,
-  totalUploadMB: 9.5,           // FormSubmit caps all attachments at 10 MB combined
+  totalUploadMB: 20,            // Gmail caps attachments at 25 MB per email
   imageMaxEdge: 2200,           // px; keeps handwriting legible
   imageQuality: 0.82,
   reportWindowHours: 24
@@ -295,11 +295,6 @@ document.getElementById("officeLink").textContent = CONFIG.officeEmail;
 document.getElementById("officeLink").href = "mailto:" + CONFIG.officeEmail;
 $("#divList").innerHTML = CONFIG.divisions.map(d => `<option value="${d}">`).join("");
 
-if (new URLSearchParams(location.search).get("sent") === "1") {
-  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-  $("#f").classList.add("hidden");
-  $("#doneView").classList.remove("hidden");
-}
 
 /* ---------- repeating rows ---------- */
 const teamSelect = cls => `<select class="${cls}"><option value="home">${esc(val("home") || "Home")}</option><option value="away">${esc(val("away") || "Away")}</option></select>`;
@@ -596,41 +591,34 @@ $("#f").addEventListener("submit", e => {
   send(warns);
 });
 
-function send(warns) {
+function readB64(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
+}
+async function send(warns) {
   try { localStorage.setItem("apsl-ref-me", JSON.stringify({ refName: val("refName"), refId: val("refId"), refPhone: val("refPhone"), refEmail: val("refEmail") })); } catch (e) {}
-  const btn = $("#submitBtn"); btn.disabled = true; btn.textContent = "Sending…";
-  const H = val("home"), A = val("away"), reasons = suppReasons();
-  const out = document.createElement("form");
-  out.method = "POST"; out.action = CONFIG.endpoint; out.enctype = "multipart/form-data"; out.style.display = "none";
-  const put = (name, value) => { const i = document.createElement("input"); i.type = "hidden"; i.name = name; i.value = value; out.appendChild(i); };
-  const flag = reasons.length ? " [SUPPLEMENTAL: " + reasons.join(", ") + "]" : "";
-  put("_subject", `Ref Report #${val("gameNo")} – ${H} ${val("homeScore")}-${val("awayScore")} ${A} (${val("gameDate")})${flag}`);
-  put("_template", "table");
-  put("_next", location.origin + location.pathname + "?sent=1");
-  put("_replyto", val("refEmail"));
-  put("_autoresponse", `Thanks ${val("refName")} – the APSL office received your report for game #${val("gameNo")}, ${H} v ${A}. Reply to this email if anything needs correcting.`);
-  if (CONFIG.cc) put("_cc", CONFIG.cc);
-  put("email", val("refEmail"));
-  put("Game", `#${val("gameNo")} · ${val("gameDate")} · ${val("division")}`);
-  put("Result", `${H} ${val("homeScore")} – ${val("awayScore")} ${A}`);
-  put("Status", val("status"));
-  put("Referee", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")}`);
-  put("Supplemental required", reasons.length ? reasons.join(", ") : "No");
-  put("Validator notes", warns.length ? warns.join(" | ") : "None");
-  put("Full report", buildReport());
-  // attachments – one input per file, prefixed so the office can tell them apart
-  let n = 0;
-  const label = { home: "HOME-roster", away: "AWAY-roster", supp: "SUPPLEMENTAL" };
-  const tag = `G${val("gameNo")}`;
-  for (const slot of ["home", "away", "supp"]) files[slot].forEach((p, i) => {
-    const ext = (p.file.name.match(/\.\w+$/) || [".jpg"])[0];
-    const renamed = new File([p.file], `${tag}_${label[slot]}_${i + 1}${ext}`, { type: p.file.type });
-    const inp = document.createElement("input"); inp.type = "file"; inp.name = `attachment${++n}`;
-    const dt = new DataTransfer(); dt.items.add(renamed); inp.files = dt.files;
-    out.appendChild(inp);
-  });
-  document.body.appendChild(out);
-  out.submit();
+  const btn = $("#submitBtn"), status = $("#sendStatus");
+  btn.disabled = true; btn.textContent = "Sending…"; status.innerHTML = "";
+  try {
+    if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) throw new Error("This page isn't connected to the league's server yet.");
+    const label = { home: "HOME-roster", away: "AWAY-roster", supp: "SUPPLEMENTAL" };
+    const out = [];
+    for (const slot of ["home", "away", "supp"]) for (const [i, p] of files[slot].entries()) {
+      const ext = (p.file.name.match(/\.\w+$/) || [".jpg"])[0];
+      out.push({ name: `G${val("gameNo")}_${label[slot]}_${i + 1}${ext}`, type: p.file.type, data: await readB64(p.file) });
+    }
+    const fields = {};
+    ["gameNo","gameDate","kickoff","division","home","away","homeScore","awayScore","status","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
+    const payload = { fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
+    const res = await fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+    const j = await res.json().catch(() => ({ ok: false, error: "Unexpected response from server." }));
+    if (!j.ok) throw new Error(j.error || "The server rejected the report.");
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
+  } catch (err) {
+    btn.disabled = false; btn.textContent = "Submit report";
+    status.innerHTML = `<div class="notice err"><strong>Not sent.</strong> ${esc(err.message || err)}<br>Your entries are saved on this device – try again, or email the roster photos to <a href="mailto:${CONFIG.officeEmail}">${CONFIG.officeEmail}</a>.</div>`;
+    status.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 </script>
 </body>
