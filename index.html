@@ -51,9 +51,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-o
 .invalid{border-color:var(--accent)!important;background:var(--accent-soft)}
 .row-list{display:flex;flex-direction:column;gap:8px;margin:8px 0}
 .row{display:grid;gap:6px;align-items:end;padding:10px;border:1px dashed var(--line);border-radius:10px}
-.row.goal{grid-template-columns:1.2fr .6fr 1.6fr .7fr auto}
+.row.goal{grid-template-columns:1.1fr .9fr .6fr 1.6fr .6fr auto}
 .row.card{grid-template-columns:1.2fr .6fr 1.4fr .9fr 1.4fr .7fr auto}
-.row.sub{grid-template-columns:1.2fr .7fr .7fr .7fr 1fr auto}
+.row.sub{grid-template-columns:1.1fr .55fr 1.3fr .55fr 1.3fr .55fr 1fr auto}
 .row label{font-size:11px;color:var(--muted);font-weight:600}
 @media (max-width:640px){
   .row.goal,.row.card,.row.sub{grid-template-columns:1fr 1fr}
@@ -170,7 +170,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
     <div><label for="homeScore">Home goals <span class="req">*</span></label><input id="homeScore" type="number" min="0" max="40" inputmode="numeric" required></div>
     <div><label for="awayScore">Away goals <span class="req">*</span></label><input id="awayScore" type="number" min="0" max="40" inputmode="numeric" required></div>
   </div>
-  <p class="hint" style="margin-top:12px">Add each goal. Own goals count for the team that benefited.</p>
+  <p class="hint" style="margin-top:12px">Add every goal with the scorer's number and name – the list must match the final score. For an own goal, pick the team that benefited and enter the number and name of the player who put it in.</p>
   <div id="goals" class="row-list"></div>
   <button type="button" class="add" data-add="goal">+ Add goal</button>
 </section>
@@ -186,9 +186,10 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <!-- 5. SUBS -->
 <section class="card">
   <h2><span class="n">5</span>Substitutions</h2>
-  <p class="hint">Limit: 7 per team, no re-entry, plus 1 concussion substitute. If you marked subs and minutes on the roster sheet, you can skip this.</p>
+  <p class="hint">Add every substitution with the number and name of both players. Limit: 7 per team, no re-entry, plus 1 concussion substitute.</p>
   <div id="subs" class="row-list"></div>
   <button type="button" class="add" data-add="sub">+ Add substitution</button>
+  <label class="check" style="margin-top:10px"><input type="checkbox" id="noSubs"><span>No substitutions were made by either team</span></label>
   <div id="subWarn"></div>
 </section>
 
@@ -300,9 +301,10 @@ $("#divList").innerHTML = CONFIG.divisions.map(d => `<option value="${d}">`).joi
 const teamSelect = cls => `<select class="${cls}"><option value="home">${esc(val("home") || "Home")}</option><option value="away">${esc(val("away") || "Away")}</option></select>`;
 const TEMPLATES = {
   goal: () => `
-    <div><label>Team</label>${teamSelect("g-team")}</div>
+    <div><label>Goal for</label>${teamSelect("g-team")}</div>
+    <div><label>Type</label><select class="g-type"><option>Goal</option><option>Penalty</option><option>Own goal</option></select></div>
     <div><label>#</label><input class="g-num" inputmode="numeric"></div>
-    <div><label>Scorer</label><input class="g-name" placeholder="Name or OG"></div>
+    <div><label>Scorer name</label><input class="g-name"></div>
     <div><label>Min</label><input class="g-min" inputmode="numeric" placeholder="45+2"></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`,
   card: () => `
@@ -321,7 +323,9 @@ const TEMPLATES = {
   sub: () => `
     <div><label>Team</label>${teamSelect("s-team")}</div>
     <div><label>On #</label><input class="s-on" inputmode="numeric"></div>
+    <div><label>Player on</label><input class="s-onName"></div>
     <div><label>Off #</label><input class="s-off" inputmode="numeric"></div>
+    <div><label>Player off</label><input class="s-offName"></div>
     <div><label>Min</label><input class="s-min" inputmode="numeric"></div>
     <div><label>Type</label><select class="s-type"><option>Normal</option><option>Concussion</option><option>Additional (opp. concussion)</option></select></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`
@@ -441,13 +445,14 @@ function validate() {
 
   // goals
   const goals = rows("goal");
-  goals.forEach((g, i) => { if (!minuteOk(g["g-min"])) errors.push(`Goal ${i + 1}: minute is missing or invalid`); });
-  if (played && goals.length) {
+  goals.forEach((g, i) => {
+    const miss = [!g["g-num"] && "number", !g["g-name"] && "name", !minuteOk(g["g-min"]) && "minute"].filter(Boolean);
+    if (miss.length) errors.push(`Goal ${i + 1}: scorer ${miss.join(", ")} missing or invalid`);
+  });
+  if (played && val("homeScore") !== "" && val("awayScore") !== "") {
     const h = goals.filter(g => g["g-team"] === "home").length, a = goals.length - h;
-    if (val("homeScore") !== "" && (h !== +val("homeScore") || a !== +val("awayScore")))
-      warns.push(`Goals listed (${h}–${a}) don't match the final score (${val("homeScore")}–${val("awayScore")})`);
-  } else if (played && (+val("homeScore") + +val("awayScore")) > 0) {
-    warns.push("Score is above zero but no goal scorers are listed");
+    if (h !== +val("homeScore") || a !== +val("awayScore"))
+      errors.push(`Goals listed (${h}–${a}) must match the final score (${val("homeScore")}–${val("awayScore")}) – add every scorer`);
   }
 
   // cards
@@ -464,7 +469,12 @@ function validate() {
 
   // subs
   const subs = rows("sub"); const subMsgs = [];
-  subs.forEach((s, i) => { if (!s["s-on"] || !s["s-off"] || !minuteOk(s["s-min"])) errors.push(`Substitution ${i + 1}: on #, off # and minute are needed`); });
+  subs.forEach((s, i) => {
+    const miss = [!s["s-on"] && "on #", !s["s-onName"] && "player on name", !s["s-off"] && "off #", !s["s-offName"] && "player off name", !minuteOk(s["s-min"]) && "minute"].filter(Boolean);
+    if (miss.length) errors.push(`Substitution ${i + 1}: ${miss.join(", ")} missing`);
+  });
+  if (played && !subs.length && !chk("noSubs")) errors.push("Add every substitution, or tick “No substitutions were made”");
+  if (subs.length && chk("noSubs")) errors.push("You ticked “No substitutions” but also listed substitutions");
   ["home", "away"].forEach(t => {
     const ts = subs.filter(s => s["s-team"] === t);
     const normal = ts.filter(s => s["s-type"] === "Normal").length;
@@ -517,11 +527,12 @@ function buildReport() {
   line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", val("status"));
   L.push(``, `RESULT: ${H} ${val("homeScore") || "-"} – ${val("awayScore") || "-"} ${A}`);
   const goals = rows("goal").sort((a, b) => minuteNum(a["g-min"] || "0") - minuteNum(b["g-min"] || "0"));
-  if (goals.length) { L.push(``, `GOALS`); goals.forEach(g => L.push(`  ${g["g-min"]}'  ${teamName(g["g-team"])}  ${g["g-num"] ? "#" + g["g-num"] + " " : ""}${g["g-name"]}`)); }
+  if (goals.length) { L.push(``, `GOALS`); goals.forEach(g => L.push(`  ${g["g-min"]}'  ${teamName(g["g-team"])}  #${g["g-num"]} ${g["g-name"]}${g["g-type"] === "Penalty" ? " (pen)" : g["g-type"] === "Own goal" ? " (OG – " + teamName(g["g-team"] === "home" ? "away" : "home") + " player)" : ""}`)); }
   const cards = rows("card");
   if (cards.length) { L.push(``, `CARDS`); cards.forEach(c => L.push(`  ${c["k-min"]}'  ${c["k-type"].toUpperCase()}  ${teamName(c["k-team"])}  ${c["k-num"] ? "#" + c["k-num"] + " " : ""}${c["k-name"]} – ${c["k-reason"]}`)); }
-  const subs = rows("sub");
-  if (subs.length) { L.push(``, `SUBSTITUTIONS`); subs.forEach(s => L.push(`  ${s["s-min"]}'  ${teamName(s["s-team"])}  #${s["s-on"]} on for #${s["s-off"]}${s["s-type"] !== "Normal" ? " (" + s["s-type"] + ")" : ""}`)); }
+  const subs = rows("sub").sort((a, b) => minuteNum(a["s-min"] || "0") - minuteNum(b["s-min"] || "0"));
+  if (subs.length) { L.push(``, `SUBSTITUTIONS`); subs.forEach(s => L.push(`  ${s["s-min"]}'  ${teamName(s["s-team"])}  ON #${s["s-on"]} ${s["s-onName"]}  /  OFF #${s["s-off"]} ${s["s-offName"]}${s["s-type"] !== "Normal" ? " (" + s["s-type"] + ")" : ""}`)); }
+  else if (chk("noSubs")) L.push(``, `SUBSTITUTIONS: none`);
   L.push(``, `CREW`);
   line("Submitted by", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")} · ${val("refEmail")}`);
   line("AR1", val("ar1")); line("AR2", val("ar2")); line("4th", val("fourth"));
