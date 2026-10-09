@@ -4,8 +4,8 @@
  * Serves the referee report page (Index.html) and handles each submission:
  *   1. Saves roster photos / supplementals to a Drive folder (one subfolder per game)
  *   2. Appends a row to a "Referee Reports Log" sheet
- *   3. Emails the full report + attachments to the league office, copying the
- *      assignor for that conference / home team (from the "Referee Report Settings" sheet)
+ *   3. Emails the full report + attachments to the league office, copying the assignor and
+ *      commissioner for that conference / home team (from the "Referee Report Settings" sheet)
  *   4. Emails the referee a confirmation
  * The form's conference dropdown comes from the same settings sheet (Assignors tab, column A).
  *
@@ -126,7 +126,8 @@ function getLog() {
   }
   return ss;
 }
-// "Referee Report Settings" sheet → Assignors tab: Conference | Home team (blank = whole conference) | Assignor email(s)
+// "Referee Report Settings" sheet → Assignors tab:
+//   Conference | Home team (blank = whole conference) | Assignor email(s) | Commissioner email(s)
 function getSettings() {
   const props = PropertiesService.getScriptProperties();
   let ss, id = props.getProperty('SETTINGS_SHEET_ID');
@@ -135,22 +136,25 @@ function getSettings() {
     ss = SpreadsheetApp.create('Referee Report Settings');
     DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
     const sh = ss.getSheets()[0].setName('Assignors');
-    sh.appendRow(['Conference', 'Home team (leave blank for whole conference)', 'Assignor email(s), comma-separated']);
+    sh.appendRow(['Conference', 'Home team (leave blank for whole conference)', 'Assignor email(s), comma-separated', 'Commissioner email(s), comma-separated']);
     ['Constitution Conference', 'Delaware River Conference', 'Mayflower Conference', 'Metropolitan Conference',
      'Mitten Conference', 'Terminus Conference', 'Trinity Conference'].forEach(c => sh.appendRow([c, '', '']));
-    sh.setFrozenRows(1); sh.autoResizeColumns(1, 3);
+    sh.setFrozenRows(1); sh.autoResizeColumns(1, 4);
     props.setProperty('SETTINGS_SHEET_ID', ss.getId());
   }
   return ss;
 }
+// Assignor + commissioner emails for a report. A home-team row overrides the conference row for that column.
 function assignorsFor(conference, home) {
   try {
     const rows = getSettings().getSheetByName('Assignors').getDataRange().getValues().slice(1);
     const norm = s => String(s || '').trim().toLowerCase();
     const mine = rows.filter(r => norm(r[0]) === norm(conference));
     const team = mine.filter(r => norm(r[1]) && norm(r[1]) === norm(home));
-    const pick = team.length ? team : mine.filter(r => !norm(r[1]));
-    return pick.map(r => String(r[2] || '')).join(',').split(/[,;\s]+/).filter(isEmail).join(',');
+    const base = mine.filter(r => !norm(r[1]));
+    const emails = (list, i) => list.map(r => String(r[i] || '')).join(',').split(/[,;\s]+/).filter(isEmail);
+    const forCol = i => { const t = emails(team, i); return t.length ? t : emails(base, i); };
+    return [...new Set([...forCol(2), ...forCol(3)])].join(',');
   } catch (e) { console.error(e); return ''; }
 }
 function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
