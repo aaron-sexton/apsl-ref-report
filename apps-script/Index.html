@@ -55,6 +55,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-o
 .row.card{grid-template-columns:1.2fr .6fr 1.4fr .9fr 1.4fr .7fr auto}
 .row.sub{grid-template-columns:1.1fr .55fr 1.3fr .55fr 1.3fr .55fr 1fr auto}
 .row label{font-size:11px;color:var(--muted);font-weight:600}
+.row label .req{color:var(--accent)}
 @media (max-width:640px){
   .row.goal,.row.card,.row.sub{grid-template-columns:1fr 1fr}
   .row .x{grid-column:1/-1}
@@ -303,9 +304,9 @@ const TEMPLATES = {
   goal: () => `
     <div><label>Goal for</label>${teamSelect("g-team")}</div>
     <div><label>Type</label><select class="g-type"><option>Goal</option><option>Penalty</option><option>Own goal</option></select></div>
-    <div><label>#</label><input class="g-num" inputmode="numeric"></div>
-    <div><label>Scorer name</label><input class="g-name"></div>
-    <div><label>Min</label><input class="g-min" inputmode="numeric" placeholder="45+2"></div>
+    <div><label># <span class="req">*</span></label><input class="g-num" inputmode="numeric"></div>
+    <div><label>Scorer name <span class="req">*</span></label><input class="g-name"></div>
+    <div><label>Min <span class="req">*</span></label><input class="g-min" inputmode="numeric" placeholder="45+2"></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`,
   card: () => `
     <div><label>Team</label>${teamSelect("k-team")}</div>
@@ -318,15 +319,15 @@ const TEMPLATES = {
       <option>Serious foul play</option><option>Violent conduct</option><option>Spitting</option>
       <option>Denying obvious goal-scoring opportunity</option><option>Offensive, insulting or abusive language</option>
       <option>Team official misconduct</option><option>Other</option></select></div>
-    <div><label>Min</label><input class="k-min" inputmode="numeric"></div>
+    <div><label>Min <span class="req">*</span></label><input class="k-min" inputmode="numeric"></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`,
   sub: () => `
     <div><label>Team</label>${teamSelect("s-team")}</div>
-    <div><label>On #</label><input class="s-on" inputmode="numeric"></div>
-    <div><label>Player on</label><input class="s-onName"></div>
-    <div><label>Off #</label><input class="s-off" inputmode="numeric"></div>
-    <div><label>Player off</label><input class="s-offName"></div>
-    <div><label>Min</label><input class="s-min" inputmode="numeric"></div>
+    <div><label>On # <span class="req">*</span></label><input class="s-on" inputmode="numeric"></div>
+    <div><label>Player on <span class="req">*</span></label><input class="s-onName"></div>
+    <div><label>Off # <span class="req">*</span></label><input class="s-off" inputmode="numeric"></div>
+    <div><label>Player off <span class="req">*</span></label><input class="s-offName"></div>
+    <div><label>Min <span class="req">*</span></label><input class="s-min" inputmode="numeric"></div>
     <div><label>Type</label><select class="s-type"><option>Normal</option><option>Concussion</option><option>Additional (opp. concussion)</option></select></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`
 };
@@ -345,6 +346,9 @@ document.addEventListener("click", e => {
   if (add) { const r = addRow(add.dataset.add); r.querySelector("input")?.focus(); refresh(); }
   if (e.target.matches(".row .x")) { e.target.closest(".row").remove(); refresh(); }
 });
+function markRows(kind, checks) {   // checks: {className: fn(value) -> ok}
+  $$(LISTS[kind] + " .row").forEach(r => { for (const [cls, ok] of Object.entries(checks)) { const el = r.querySelector("." + cls); if (el && !ok(el.value.trim())) el.classList.add("invalid"); } });
+}
 function rows(kind) {
   return $$(LISTS[kind] + " .row").map(r => {
     const o = {}; r.querySelectorAll("input,select").forEach(el => o[el.className] = el.value.trim()); return o;
@@ -445,6 +449,10 @@ function validate() {
 
   // goals
   const goals = rows("goal");
+  const filled = v => !!v;
+  markRows("goal", { "g-num": filled, "g-name": filled, "g-min": minuteOk });
+  markRows("sub", { "s-on": filled, "s-onName": filled, "s-off": filled, "s-offName": filled, "s-min": minuteOk });
+  markRows("card", { "k-min": minuteOk });
   goals.forEach((g, i) => {
     const miss = [!g["g-num"] && "number", !g["g-name"] && "name", !minuteOk(g["g-min"]) && "minute"].filter(Boolean);
     if (miss.length) errors.push(`Goal ${i + 1}: scorer ${miss.join(", ")} missing or invalid`);
