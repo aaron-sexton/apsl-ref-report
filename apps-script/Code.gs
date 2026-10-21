@@ -127,7 +127,7 @@ function getLog() {
   return ss;
 }
 // "Referee Report Settings" sheet → Assignors tab:
-//   Conference | Home team (blank = whole conference) | Assignor email(s) | Commissioner email(s)
+//   Conference | Home team(s), comma-separated (blank = whole conference) | Assignor email(s) | Commissioner email(s)
 function getSettings() {
   const props = PropertiesService.getScriptProperties();
   let ss, id = props.getProperty('SETTINGS_SHEET_ID');
@@ -136,7 +136,7 @@ function getSettings() {
     ss = SpreadsheetApp.create('Referee Report Settings');
     DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
     const sh = ss.getSheets()[0].setName('Assignors');
-    sh.appendRow(['Conference', 'Home team (leave blank for whole conference)', 'Assignor email(s), comma-separated', 'Commissioner email(s), comma-separated']);
+    sh.appendRow(['Conference', 'Home team(s), comma-separated (leave blank for whole conference)', 'Assignor email(s), comma-separated', 'Commissioner email(s), comma-separated']);
     ['Constitution Conference', 'Delaware River Conference', 'Mayflower Conference', 'Metropolitan Conference',
      'Mitten Conference', 'Terminus Conference', 'Trinity Conference'].forEach(c => sh.appendRow([c, '', '']));
     sh.setFrozenRows(1); sh.autoResizeColumns(1, 4);
@@ -149,8 +149,14 @@ function assignorsFor(conference, home) {
   try {
     const rows = getSettings().getSheetByName('Assignors').getDataRange().getValues().slice(1);
     const norm = s => String(s || '').trim().toLowerCase();
+    const key = s => norm(s).replace(/[^a-z0-9]+/g, '');        // ignore spaces, punctuation, case
+    const teamsIn = cell => String(cell || '').split(/[,;\n]+/).map(key).filter(Boolean);
+    const h = key(home);
+    // Column B may list several teams, comma-separated. A team matches if the names are the same, or one
+    // contains the other (so a ref typing "Hoboken" still matches "Hoboken FC 1912").
+    const matches = t => t === h || (h.length >= 4 && t.length >= 4 && (t.includes(h) || h.includes(t)));
     const mine = rows.filter(r => norm(r[0]) === norm(conference));
-    const team = mine.filter(r => norm(r[1]) && norm(r[1]) === norm(home));
+    const team = mine.filter(r => teamsIn(r[1]).some(matches));
     const base = mine.filter(r => !norm(r[1]));
     const emails = (list, i) => list.map(r => String(r[i] || '')).join(',').split(/[,;\s]+/).filter(isEmail);
     const forCol = i => { const t = emails(team, i); return t.length ? t : emails(base, i); };
