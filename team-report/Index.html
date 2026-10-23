@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>APSL Team Match Report</title>
+<title>APSL Club Post-Match Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -143,6 +143,11 @@ details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)
 .matchbar{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:0 0 14px}
 .matchbar button{flex:none;font-size:14px}
 footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px}
+.seg3 button{min-width:64px}
+.seg button.on[data-v="yes"]{background:var(--ok-btn,#0f7b3f);color:#fff}
+.seg button.on[data-v="no"]{background:var(--accent);color:#fff}
+.seg button.on[data-v="unsure"]{background:var(--muted);color:#fff}
+.pm.is-unsure{border-color:var(--muted)}
 </style>
 </head>
 <body>
@@ -150,8 +155,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div class="badge"><img alt="APSL" src="data:image/png;base64,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"></div>
   <div>
   <small>American Premier Soccer League</small>
-  <h1>Team Match Report</h1>
-  <p>For club managers and officials. Due within 24 hours of the final whistle. Your progress saves on this device as you go.</p>
+  <h1>Club Post-Match Report</h1>
+  <p>For club managers and officials – one report per club after every match. Takes about 2 minutes.</p>
   </div>
 </div></header>
 
@@ -161,187 +166,56 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div class="done">
     <img alt="APSL" src="data:image/png;base64,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" style="width:84px;height:auto;margin:0 auto 10px;display:block">
     <h2>Report submitted</h2>
-    <p class="hint">The league office has your club's report and photos. A confirmation is on its way to your email.</p>
-    <button type="button" id="startAnother">Start another match</button>
+    <p class="hint">Thanks – the league office and your conference commissioner have your report. A copy is on its way to your email.</p>
+    <button type="button" id="startAnother">Report another match</button>
   </div>
 </div>
 
 <form id="f" novalidate>
-<!-- 1. MATCH -->
+
 <section class="card">
   <h2><span class="n">1</span>Match</h2>
   <div class="grid">
     <div class="full"><label for="division">Conference <span class="req">*</span></label>
       <select id="division" required><option value="">Loading…</option></select></div>
-    <div><label for="gameDate">Game date <span class="req">*</span></label><input id="gameDate" type="date" required></div>
-    <div><label for="kickoff">Scheduled kickoff <span class="req">*</span></label><input id="kickoff" type="time" required></div>
-    <div><label for="home">Home team <span class="req">*</span></label>
-      <select id="home" required><option value="">Select conference first</option></select>
-      <input id="homeOther" class="other hidden" placeholder="Type the home team" autocapitalize="words"></div>
-    <div><label for="away">Away team <span class="req">*</span></label>
-      <select id="away" required><option value="">Select conference first</option></select>
-      <input id="awayOther" class="other hidden" placeholder="Type the away team" autocapitalize="words"></div>
-    <div class="full"><label for="venue">Venue</label><input id="venue" placeholder="Field name and city" autocapitalize="words"></div>
-    <div><label for="side">Submitting for <span class="req">*</span></label>
-      <select id="side" required><option value="">Select…</option><option value="home">The home team</option><option value="away">The away team</option></select></div>
-    <div><label for="matchType">Match type</label>
-      <select id="matchType"><option>Regular season</option><option>Playoff</option><option>Cup</option><option>Friendly</option></select></div>
+    <div><label for="gameDate">Date of the match <span class="req">*</span></label><input id="gameDate" type="date" required></div>
+    <div><label for="side">Were you home or away? <span class="req">*</span></label>
+      <select id="side" required><option value="">Select…</option><option value="home">Home</option><option value="away">Away</option></select></div>
+    <div><label for="club">Your club <span class="req">*</span></label>
+      <select id="club" required><option value="">Select conference first</option></select>
+      <input id="clubOther" class="other hidden" placeholder="Type your club's name" autocapitalize="words"></div>
+    <div><label for="opponent">Your opponent <span class="req">*</span></label>
+      <select id="opponent" required><option value="">Select conference first</option></select>
+      <input id="opponentOther" class="other hidden" placeholder="Type the opponent's name" autocapitalize="words"></div>
   </div>
 </section>
 
-<!-- 2. YOUR DETAILS -->
 <section class="card">
   <h2><span class="n">2</span>Your details</h2>
-  <p class="hint">The club official submitting this report. Your email gets a copy.</p>
   <div class="grid">
-    <div><label for="refName">Your name <span class="req">*</span></label><input id="refName" required autocomplete="name"></div>
-    <div><label for="refRole">Your role <span class="req">*</span></label>
-      <select id="refRole" required><option>Manager</option><option>Head coach</option><option>Assistant coach</option><option>Club administrator</option><option>Club owner / president</option><option>Other club official</option></select></div>
-    <div><label for="refPhone">Phone <span class="req">*</span></label><input id="refPhone" type="tel" required autocomplete="tel"></div>
-    <div><label for="refEmail">Email <span class="req">*</span></label><input id="refEmail" type="email" required autocomplete="email"></div>
+    <div><label for="subName">Your name <span class="req">*</span></label><input id="subName" required autocomplete="name"></div>
+    <div><label for="subEmail">Email <span class="req">*</span></label><input id="subEmail" type="email" required autocomplete="email"></div>
   </div>
+  <p class="hint" style="margin:8px 0 0">You'll get a copy of your report by email.</p>
 </section>
 
-<!-- 3. RESULT -->
 <section class="card">
-  <h2><span class="n">3</span>Result and goals</h2>
-  <div class="grid">
-    <div class="full"><label for="status">Match status <span class="req">*</span></label>
-      <select id="status" required>
-        <option value="Completed">Completed</option>
-        <option value="Abandoned">Abandoned (stopped and not finished)</option>
-        <option value="Forfeit">Forfeit</option>
-        <option value="Not played">Not played – weather, lightning or field closed</option>
-      </select></div>
-    <div class="full hidden" id="abandonWrap"><div class="grid three">
-      <div><label for="abandonMin">Minute stopped <span class="req">*</span></label><input id="abandonMin" inputmode="numeric" placeholder="e.g. 63"></div>
-      <div><label for="abandonReason">Why <span class="req">*</span></label><select id="abandonReason">
-        <option value="">Select…</option>
-        <option>Weather or lightning</option>
-        <option>Lights or field failure</option>
-        <option>Injury or medical emergency</option>
-        <option>Player, team official or spectator conduct</option>
-        <option>Sent-off player or team official refused to leave</option>
-        <option>Unauthorized people refused to leave the bench (10+ min)</option>
-        <option>Other</option></select></div>
-      <div id="abandonTeamWrap" class="hidden"><label for="abandonTeam">Team responsible <span class="req">*</span></label><select id="abandonTeam">
-        <option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
-      </div><p class="hint" style="margin:6px 0 0">Matches stopped after the 70th minute usually stand as final (Handbook §4.2.6).</p></div>
-    <div class="full hidden" id="forfeitWrap"><div class="grid">
-      <div><label for="forfeitTeam">Forfeiting team <span class="req">*</span></label><select id="forfeitTeam">
-        <option value="">Select…</option><option value="home">Home</option><option value="away">Away</option></select></div>
-      <div><label for="forfeitReason">Reason <span class="req">*</span></label><select id="forfeitReason">
-        <option value="">Select…</option>
-        <option>Did not show up</option>
-        <option>Fewer than 7 players ready 15 minutes after kickoff time</option>
-        <option>Walked off or refused to continue</option>
-        <option>Referee fees not paid before kickoff</option>
-        <option>No field permit or field access</option>
-        <option>Players, coaches or supporters stopped the match</option>
-        <option>Sent-off player or coach refused to leave</option>
-        <option>Other</option></select></div>
-      </div><p class="hint" style="margin:6px 0 0">Forfeit grounds from Handbook §4.2.7. Enter the score at the time play stopped, if any.</p></div>
-    <div><label for="homeScore">Home goals <span class="req">*</span></label><input id="homeScore" type="number" min="0" max="40" inputmode="numeric" required></div>
-    <div><label for="awayScore">Away goals <span class="req">*</span></label><input id="awayScore" type="number" min="0" max="40" inputmode="numeric" required></div>
-  </div>
-  <p class="hint" style="margin-top:12px">Add every goal <b>your team</b> scored, with the scorer's number and name. Adding the opponent's scorers is optional. For an own goal, pick the team that benefited and enter the player who put it in.</p>
-  <div id="goals" class="row-list"></div>
-  <button type="button" class="add" data-add="goal">+ Add goal</button>
+  <h2><span class="n">3</span>Match day checks</h2>
+  <p class="hint">Answer for this match. If you pick <b>No</b>, add a few words if you can. Section numbers refer to the APSL Regulations &amp; Club Manual.</p>
+  <div id="checkList" class="pm-list"></div>
 </section>
 
-<!-- 4. DISCIPLINE -->
 <section class="card">
-  <h2><span class="n">4</span>Cards and dismissals</h2>
-  <p class="hint">List every card shown to <b>your team</b>, including coaches and staff. Opponent cards are optional. For a second yellow, pick the reason for the second caution. A send-off for your team needs a team statement (step 9).</p>
-  <div id="cards" class="row-list"></div>
-  <button type="button" class="add" data-add="card">+ Add card</button>
+  <h2><span class="n">4</span>Comments</h2>
+  <label for="comments">Anything else about the match? <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+  <textarea id="comments" placeholder="Feedback on the referees, the opponent, the venue, or anything not covered above. Please be factual and specific."></textarea>
 </section>
 
-<!-- 5. SUBS -->
-<section class="card">
-  <h2><span class="n">5</span>Substitutions</h2>
-  <p class="hint">Add every substitution <b>your team</b> made, with the number and name of both players. Limit: 7 per team, no re-entry, plus 1 concussion substitute (§4.2.4).</p>
-  <div id="subs" class="row-list"></div>
-  <button type="button" class="add" data-add="sub">+ Add substitution</button>
-  <label class="check" style="margin-top:10px"><input type="checkbox" id="noSubs"><span>Our team made no substitutions</span></label>
-  <div id="subWarn"></div>
-</section>
-
-<!-- 6. OFFICIALS & CONDITIONS -->
-<section class="card">
-  <h2><span class="n">6</span>Match officials &amp; conditions</h2>
-  <div class="grid" style="margin-bottom:12px">
-    <div class="full"><label for="offRef">Referee's name <span style="font-weight:400;color:var(--muted)">(if known)</span></label><input id="offRef" autocapitalize="words"></div>
-    <div><label for="offAR1">Assistant referee 1</label><input id="offAR1" placeholder="Name, if known"></div>
-    <div><label for="offAR2">Assistant referee 2</label><input id="offAR2" placeholder="Name, if known"></div>
-  </div>
-  <p class="hint">From your club's point of view. Tap <b>OK</b> or <b>Problem</b> – a problem needs a few words. Section numbers refer to the APSL Regulations &amp; Club Manual.</p>
-  <div id="teamList" class="pm-list"></div>
-  <div class="grid" style="margin-top:14px">
-    <div><label for="refRating">Referee crew assessment <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-      <select id="refRating"><option value="">Not rated</option><option>5 – Excellent</option><option>4 – Good</option><option>3 – Acceptable</option><option>2 – Below standard</option><option>1 – Poor</option></select></div>
-    <div class="full"><label for="refComments">Comments on the referee crew <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-      <textarea id="refComments" style="min-height:70px" placeholder="Factual and specific – e.g. arrival time, communication, control of the match"></textarea></div>
-  </div>
-  <p class="hint" style="margin:8px 0 0">Assessments go to the league office and conference commissioner only.</p>
-</section>
-
-<!-- 7. INCIDENTS -->
-<section class="card">
-  <h2><span class="n">7</span>Incidents</h2>
-  <p class="hint"><strong>Tick anything that happened.</strong> Items marked <span class="pill">describe below</span> need a sentence in the notes box; <span class="pill">needs statement</span> items need a team statement (step 9).</p>
-  <div class="checks">
-    <label class="check"><input type="checkbox" id="c_injury"><span>Serious injury <span class="pill">needs statement</span></span></label>
-    <label class="check"><input type="checkbox" id="c_refusedLeave"><span>A sent-off player or team official refused to leave, or came back <span class="pill">needs statement</span><small>(§4.2.6, §4.2.7)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_spectator"><span>Abusive or disruptive spectators / non-players <span class="pill">describe below</span><small>Including supporters who delayed or stopped play (§4.2.7, §8.3.5)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_discrim"><span>Discriminatory language or conduct <span class="pill">needs statement</span><small>By anyone – player, staff or spectator (§8.2)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_eligibility"><span>We believe the opponent used an ineligible player <span class="pill">describe below</span><small>Not on their roster form, ID didn't match, or arrived after the second half started (§4.2.2, §4.2.4, §8.3.4)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_refConcern"><span>Concern about the referee crew's conduct <span class="pill">needs statement</span><small>Facts only – e.g. abusive language, arriving late, not checking IDs. Judgement calls and cautions can't be appealed (§8.6)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_protest"><span>We intend to protest this match <span class="pill">needs statement</span><small>A protest must be raised with the referee at the match, then filed in writing within 48 hours with the $100 fee (§8.6). This report alone is not a protest.</small></span></label>
-  </div>
-  <div style="margin-top:12px"><label for="notes">Notes for the league</label>
-    <textarea id="notes" placeholder="Describe anything ticked above, plus delays, field conditions, etc."></textarea></div>
-</section>
-
-<!-- 8. UPLOADS -->
-<section class="card">
-  <h2><span class="n">8</span>Roster sheets &amp; photos</h2>
-  <p class="hint">Photograph your team's match-day roster form (marked up by the referee if you have it). Lay it flat, fill the frame, and make sure the writing is readable.</p>
-  <div class="drop">
-    <strong><span id="mineLabel">Your team's</span> roster form <span class="req" style="color:var(--accent)">*</span></strong>
-    <div class="sub">Photo or PDF · add a second page if needed</div>
-    <label class="pick">Take photo / choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="mine"></label>
-    <div class="thumbs" data-thumbs="mine"></div>
-  </div>
-  <div style="height:12px"></div>
-  <div class="drop">
-    <strong><span id="oppLabel">Opponent's</span> roster form <span style="font-weight:400;color:var(--muted)">(optional)</span></strong>
-    <div class="sub">The copy they gave you before kickoff (§4.2.2)</div>
-    <label class="pick">Take photo / choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="opp"></label>
-    <div class="thumbs" data-thumbs="opp"></div>
-  </div>
-  <div class="budget"><span id="budgetText">0 MB used</span><div class="bar"><i id="budgetBar"></i></div></div>
-</section>
-
-<!-- 9. TEAM STATEMENT -->
-<section class="card" id="suppCard">
-  <h2><span class="n">9</span>Team statement <span id="suppReq" class="pill hidden">required</span></h2>
-  <p class="hint" id="suppHint"></p>
-  <textarea id="suppText" style="min-height:160px" placeholder="For each incident: minute, player name and number, what happened, and who saw it. Stick to facts."></textarea>
-  <div class="drop" style="margin-top:12px">
-    <strong>Supporting files <span style="font-weight:400;color:var(--muted)">(optional)</span></strong>
-    <div class="sub">Photos, a signed statement, or screenshots. For video, paste a link in the statement.</div>
-    <label class="pick">Choose file<input type="file" accept="image/*,application/pdf" multiple data-slot="supp"></label>
-    <div class="thumbs" data-thumbs="supp"></div>
-  </div>
-</section>
-
-<!-- 10. REVIEW -->
 <section class="card summary">
-  <h2><span class="n">10</span>Review and submit</h2>
-  <label class="check" style="margin-bottom:10px"><input type="checkbox" id="attest"><span>I confirm this report is accurate and complete to the best of my knowledge.</span></label>
+  <h2><span class="n">5</span>Submit</h2>
+  <label class="check" style="margin-bottom:10px"><input type="checkbox" id="attest"><span>I verify that all information submitted in this form is accurate and understand that any falsified submission could result in fines and / or penalties for my club.</span></label>
   <div id="problems"></div>
-  <details><summary>Preview what the league office receives</summary><pre id="preview"></pre></details>
+  <details><summary>Preview what the league receives</summary><pre id="preview"></pre></details>
   <div style="height:12px"></div>
   <button type="submit" class="primary" id="submitBtn">Submit report</button>
   <input type="text" name="website" id="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
@@ -354,479 +228,62 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <script>
 /* =============================== CONFIG =============================== */
-const CONFIG = {
-  // Only used if this page is hosted outside Apps Script: the web app URL ending in /exec.
-  endpoint: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
-  officeEmail: "office@apslsoccer.com",
-  maxSubs: 7,
-  totalUploadMB: 20,            // Gmail caps attachments at 25 MB per email
-  imageMaxEdge: 2200,           // px; keeps handwriting legible
-  imageQuality: 0.82,
-  reportWindowHours: 24
-};
+const CONFIG = { officeEmail: "office@apslsoccer.com" };
 /* ====================================================================== */
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-team-draft-v1";
+const DRAFT_KEY = "apsl-club-draft-v1";
 const OTHER = "__other";
-const files = { mine: [], opp: [], supp: [] };   // {file: File, name, size, url}
+$("#officeLink").textContent = CONFIG.officeEmail;
+$("#officeLink").href = "mailto:" + CONFIG.officeEmail;
 
-document.getElementById("officeLink").textContent = CONFIG.officeEmail;
-document.getElementById("officeLink").href = "mailto:" + CONFIG.officeEmail;
-
-
-/* ---------- repeating rows ---------- */
-const teamSelect = cls => `<select class="${cls}"><option value="home">${esc(val("home") || "Home")}</option><option value="away">${esc(val("away") || "Away")}</option></select>`;
-const TEMPLATES = {
-  goal: () => `
-    <div><label>Goal for</label>${teamSelect("g-team")}</div>
-    <div><label>Type</label><select class="g-type"><option>Goal</option><option>Penalty</option><option>Own goal</option></select></div>
-    <div><label># <span class="req">*</span></label><input class="g-num" inputmode="numeric"></div>
-    <div><label>Scorer name <span class="req">*</span></label><input class="g-name"></div>
-    <div><label>Min <span class="req">*</span></label><input class="g-min" inputmode="numeric" placeholder="45+2"></div>
-    <button type="button" class="x" aria-label="Remove">✕</button>`,
-  card: () => `
-    <div><label>Team</label>${teamSelect("k-team")}</div>
-    <div><label>#</label><input class="k-num" inputmode="numeric" placeholder="or Coach"></div>
-    <div><label>Name</label><input class="k-name"></div>
-    <div><label>Card</label><select class="k-type"><option>Yellow</option><option>Second yellow (red)</option><option>Red</option></select></div>
-    <div><label>Reason</label><select class="k-reason">${reasonOptions("Yellow")}</select></div>
-    <div><label>Min <span class="req">*</span></label><input class="k-min" inputmode="numeric"></div>
-    <button type="button" class="x" aria-label="Remove">✕</button>`,
-  sub: () => `
-    <div><label>Team</label>${teamSelect("s-team")}</div>
-    <div><label>On # <span class="req">*</span></label><input class="s-on" inputmode="numeric"></div>
-    <div><label>Player on <span class="req">*</span></label><input class="s-onName"></div>
-    <div><label>Off # <span class="req">*</span></label><input class="s-off" inputmode="numeric"></div>
-    <div><label>Player off <span class="req">*</span></label><input class="s-offName"></div>
-    <div><label>Min <span class="req">*</span></label><input class="s-min" inputmode="numeric"></div>
-    <div><label>Type</label><select class="s-type"><option>Normal</option><option>Concussion</option><option>Additional (opp. concussion)</option></select></div>
-    <button type="button" class="x" aria-label="Remove">✕</button>`
-};
-const LISTS = { goal: "#goals", card: "#cards", sub: "#subs" };
-
-/* ---------- pre-match checklist & kickoff items (OK / Problem) ---------- */
-const TEAM_ITEMS = [
-  { k: "refOnTime", r: "Referee crew on time", t: "Referee crew arrived on time", s: "Expected at least 30 minutes before kickoff" },
-  { k: "fullCrew",  r: "Full referee crew", t: "Full crew: referee and two assistant referees", s: "Assigned through the APSL referee assignor (§3.1.1)" },
-  { k: "idCheck",   r: "Roster & ID check", t: "Referee checked both teams' roster forms and IDs", s: "§4.2.2" },
-  { k: "oppRoster", r: "Opponent roster copy", t: "We received a copy of the opponent's roster form", s: "§4.2.2" },
-  { k: "fees",      r: "Referee fees paid before kickoff", t: "Referee fees paid in full before kickoff (home team pays)", s: "§3.1.4", extra: "fees" },
-  { k: "physio",    r: "Home physio & medical kit", t: "Home team physio and medical kit present", s: "§4.2.1, §8.3.2", extra: "physio" },
-  { k: "field",     r: "Field & match day standards", t: "Field, goals, corner flags, match balls and benches up to standard", s: "§4.1, §4.2.1" },
-  { k: "ready",     r: "Both teams ready (7+ players)", t: "Both teams ready with at least 7 players at kickoff time", s: "More than 15 minutes late is grounds for a forfeit (§4.2.7)", extra: "ready" },
-  { k: "walkout",   r: "Pre-match walkout", t: "Pre-match walkout done", s: "§4.2.1" },
-];
-function itemHTML(it) {
-  let extra = "";
-  if (it.extra === "physio") extra = `<div class="pm-extra">
-      <div><label for="physioHome">Home physio's name <span style="font-weight:400;color:var(--muted)">(if known)</span></label><input id="physioHome" placeholder="Home team physio"></div>
-      <div><label for="physioAway">Away physio <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="physioAway"></div></div>`;
-  let detail;
-  if (it.extra === "fees") detail = `<div class="pm-extra">
-      <div><label for="feeStatus">What happened?</label><select id="feeStatus"><option value="">Select…</option><option>Paid in full, but after kickoff</option><option>Partially paid</option><option>Not paid</option></select></div>
-      <div><label for="paidNote">Details</label><input id="paidNote" placeholder="Amount received, who still owes what"></div></div>`;
-  else if (it.extra === "ready") detail = `<div class="pm-extra">
-      <div><label for="readyTeam">Which team wasn't ready?</label><select id="readyTeam"><option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
-      <div><label for="pmd_ready">Details</label><input id="pmd_ready" placeholder="e.g. 7th player arrived 12 min late"></div></div>`;
-  else detail = `<div class="pm-extra"><div class="full"><input id="pmd_${it.k}" placeholder="What was wrong?"></div></div>`;
-  return `<div class="pm" data-k="${it.k}">
-    <div class="pm-q"><span>${it.t}<small>${it.s}</small></span>
-      <div class="seg"><button type="button" data-v="ok">OK</button><button type="button" data-v="problem">Problem</button></div></div>
-    <input type="hidden" id="pm_${it.k}">${extra}
-    <div class="pm-detail hidden">${detail}</div></div>`;
-}
-$("#teamList").innerHTML = TEAM_ITEMS.map(itemHTML).join("");
-function paintItems() {
-  $$(".pm").forEach(el => {
-    const v = $("#pm_" + el.dataset.k).value;
-    el.classList.toggle("is-ok", v === "ok"); el.classList.toggle("is-problem", v === "problem");
-    el.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
-    el.querySelector(".pm-detail").classList.toggle("hidden", v !== "problem");
-  });
-}
-document.addEventListener("click", e => {
-  const b = e.target.closest(".seg button"); if (!b) return;
-  const k = b.closest(".pm").dataset.k;
-  $("#pm_" + k).value = b.dataset.v; paintItems(); refresh();
-  if (b.dataset.v === "problem") b.closest(".pm").querySelector(".pm-detail input, .pm-detail select")?.focus();
-});
-const pmVal = k => val("pm_" + k);
-function feesText() {
-  if (pmVal("fees") === "ok") return "Paid in full before kickoff";
-  if (pmVal("fees") === "problem") return (val("feeStatus") || "Problem") + (val("paidNote") ? " – " + val("paidNote") : "");
-  return "";
-}
-function itemDetail(it) {
-  if (it.extra === "fees") return feesText();
-  if (it.extra === "ready") return (val("readyTeam") ? (val("readyTeam") === "both" ? "Both teams" : teamName(val("readyTeam"))) + " not ready" : "") + (val("pmd_ready") ? " – " + val("pmd_ready") : "");
-  return val("pmd_" + it.k);
-}
-function itemErrors(items, markBad) {
-  const out = [];
-  items.forEach(it => {
-    const v = pmVal(it.k), box = $(`.pm[data-k="${it.k}"]`);
-    if (!v) { box.classList.add("invalid"); out.push(`Match day checks: answer “${it.r}”`); return; }
-    if (v === "problem") {
-      if (it.extra === "fees") { if (!val("feeStatus")) markBad("feeStatus", out, "Referee fees: pick what happened"); if (!val("paidNote")) markBad("paidNote", out, "Referee fees: add payment details (§3.1.4)"); }
-      else if (it.extra === "ready") { if (!val("readyTeam")) markBad("readyTeam", out, "Kickoff: pick which team wasn't ready"); }
-      else if (val("pmd_" + it.k).length < 3) markBad("pmd_" + it.k, out, `Match day checks: describe the problem with “${it.r}”`);
-    }
-  });
-  return out;
-}
-const markBad = (id, list, msg) => { document.getElementById(id)?.classList.add("invalid"); list.push(msg); };
-
-/* ---------- own team helpers ---------- */
-const mySide = () => val("side");
-const oppSide = () => (val("side") === "home" ? "away" : val("side") === "away" ? "home" : "");
-const myTeam = () => (mySide() ? teamName(mySide()) : "");
-function headerErrors() {
-  const errs = [];
-  const required = { division: "Conference", gameDate: "Game date", kickoff: "Scheduled kickoff", home: "Home team", away: "Away team",
-    side: "Which team you're submitting for", refName: "Your name", refPhone: "Phone", refEmail: "Email" };
-  for (const [id, label] of Object.entries(required)) if (!val(id)) { markBad(id, errs, `${label} is missing`); document.getElementById(id + "Other")?.classList.add("invalid"); }
-  if (val("refEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("refEmail"))) markBad("refEmail", errs, "Email looks invalid");
-  if (val("home") && val("home").toLowerCase() === val("away").toLowerCase()) markBad("away", errs, "Home and away team are the same");
-  return errs;
-}
-
-const YELLOW_REASONS = ["Unsporting behavior", "Dissent by word or action", "Persistent offenses", "Delaying the restart of play",
-  "Not respecting the distance at a restart", "Entering or re-entering without permission", "Leaving the field without permission"];
-const RED_REASONS = ["Denying a goal or obvious goal-scoring opportunity", "Serious foul play", "Violent conduct",
-  "Assault on an opponent or other person (hit, kick, elbow, bite, spit)", "Offensive, insulting or abusive language or gestures",
-  "Discriminatory language or conduct", "Provoking spectators", "Unsporting behavior toward an opponent or other person",
-  "Dissent by word or action (team official)", "Deceiving a match official", "Unsporting behavior toward a match official",
-  "Intimidating or threatening a match official", "Assault on a match official", "Other – see supplemental"];
-const REF_ABUSE = ["Unsporting behavior toward a match official", "Intimidating or threatening a match official", "Assault on a match official"];
-const CONDUCT_ABANDON = ["Player, team official or spectator conduct", "Sent-off player or team official refused to leave", "Unauthorized people refused to leave the bench (10+ min)"];
-const CONDUCT_FORFEIT = ["Walked off or refused to continue", "Players, coaches or supporters stopped the match", "Sent-off player or coach refused to leave"];
-function reasonOptions(type) {
-  const list = type === "Yellow" ? YELLOW_REASONS : type === "Second yellow (red)" ? YELLOW_REASONS.map(r => r) : RED_REASONS;
-  return list.map(r => `<option>${r}</option>`).join("");
-}
-function syncReasons(row, keep) {
-  const sel = row.querySelector(".k-reason"), t = row.querySelector(".k-type").value, prev = keep ?? sel.value;
-  sel.innerHTML = reasonOptions(t);
-  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
-}
-document.addEventListener("change", e => { if (e.target.matches(".k-type")) syncReasons(e.target.closest(".row")); });
-
-function addRow(kind, data) {
-  const div = document.createElement("div");
-  div.className = "row " + kind;
-  div.innerHTML = TEMPLATES[kind]();
-  if (data) div.querySelectorAll("input,select").forEach(el => { const k = el.className; if (data[k] != null) el.value = data[k]; });
-  if (kind === "card") syncReasons(div, data && data["k-reason"]);
-  if (!data && mySide()) div.querySelectorAll(".g-team,.k-team,.s-team").forEach(sel => sel.value = mySide());
-  $(LISTS[kind]).appendChild(div);
-  return div;
-}
-document.addEventListener("click", e => {
-  const add = e.target.closest("[data-add]");
-  if (add) { const r = addRow(add.dataset.add); r.querySelector("input")?.focus(); refresh(); }
-  if (e.target.matches(".row .x")) { e.target.closest(".row").remove(); refresh(); }
-});
-function markRows(kind, checks) {   // checks: {className: fn(value) -> ok}
-  $$(LISTS[kind] + " .row").forEach(r => { for (const [cls, ok] of Object.entries(checks)) { const el = r.querySelector("." + cls); if (el && !ok(el.value.trim())) el.classList.add("invalid"); } });
-}
-function rows(kind) {
-  return $$(LISTS[kind] + " .row").map(r => {
-    const o = {}; r.querySelectorAll("input,select").forEach(el => o[el.className] = el.value.trim()); return o;
-  });
-}
-// keep team names in row dropdowns current
-["home", "away", "homeOther", "awayOther"].forEach(id => ["input", "change"].forEach(ev => $("#" + id).addEventListener(ev, () => {
-  $$(".g-team,.k-team,.s-team").forEach(sel => {
-    sel.options[0].text = val("home") || "Home"; sel.options[1].text = val("away") || "Away";
-  });
-})));
-
-/* ---------- files ---------- */
-$$("input[type=file]").forEach(inp => inp.addEventListener("change", async () => {
-  const slot = inp.dataset.slot;
-  for (const f of inp.files) {
-    const prepared = await prepareFile(f);
-    files[slot].push(prepared);
-  }
-  inp.value = "";
-  renderThumbs(slot); refresh();
-}));
-
-async function prepareFile(f) {
-  if (f.type.startsWith("image/") && f.type !== "image/gif") {
-    try {
-      const img = await loadImage(f);
-      const scale = Math.min(1, CONFIG.imageMaxEdge / Math.max(img.naturalWidth, img.naturalHeight));
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", CONFIG.imageQuality));
-      URL.revokeObjectURL(img.src);
-      if (blob && blob.size < f.size) {
-        const nf = new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
-        return { file: nf, url: URL.createObjectURL(nf), kind: "img" };
-      }
-    } catch (e) { /* browser can't decode (e.g. HEIC on desktop) – send original */ }
-    return { file: f, url: URL.createObjectURL(f), kind: "img" };
-  }
-  return { file: f, url: null, kind: f.type === "application/pdf" ? "pdf" : "file" };
-}
-function loadImage(f) {
-  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
-}
-function renderThumbs(slot) {
-  const box = $(`[data-thumbs="${slot}"]`);
-  box.innerHTML = "";
-  files[slot].forEach((p, i) => {
-    const d = document.createElement("div"); d.className = "thumb";
-    d.innerHTML = (p.kind === "img" ? `<img alt="">` : `<div class="pdf">${p.kind === "pdf" ? "PDF" : "FILE"}</div>`) +
-      `<div class="meta"></div><button type="button" aria-label="Remove">✕</button>`;
-    if (p.kind === "img") d.querySelector("img").src = p.url;
-    d.querySelector(".meta").textContent = mb(p.file.size) + " · " + p.file.name;
-    d.querySelector("button").onclick = () => { files[slot].splice(i, 1); renderThumbs(slot); refresh(); };
-    box.appendChild(d);
-  });
-}
-const totalBytes = () => Object.values(files).flat().reduce((s, p) => s + p.file.size, 0);
-const mb = b => (b / 1048576).toFixed(1) + " MB";
-
-/* ---------- helpers ---------- */
 function val(id) {
   const el = document.getElementById(id); if (!el) return "";
   if (el.tagName === "SELECT" && el.value === OTHER) { const o = document.getElementById(id + "Other"); return o ? o.value.trim() : ""; }
   return el.value.trim();
 }
-function chk(id) { return document.getElementById(id).checked; }
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-function minuteOk(m) { return /^\d{1,3}(\+\d{1,2})?$/.test(m) && parseInt(m) >= 1 && parseInt(m) <= 130; }
-function minuteNum(m) { const [a, b] = m.split("+"); return parseInt(a) + (b ? parseInt(b) / 100 : 0); }
-const teamName = t => t === "home" ? (val("home") || "Home") : (val("away") || "Away");
-const isRed = c => c["k-type"] !== "Yellow";
+const chk = id => document.getElementById(id).checked;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const opt = (v, t) => `<option value="${esc(v)}">${esc(t ?? v)}</option>`;
 
-/* ---------- validation ---------- */
-function validate() {
-  const errors = [], warns = [];
-  $$(".invalid").forEach(el => el.classList.remove("invalid"));
-  const bad = (id, msg) => { document.getElementById(id)?.classList.add("invalid"); errors.push(msg); };
-
-  errors.push(...headerErrors());
-  const me = mySide(), opp = oppSide();
-
-  const played = val("status") === "Completed" || val("status") === "Abandoned";
-  if (played || val("status") === "Forfeit") errors.push(...itemErrors(TEAM_ITEMS, markBad));
-  if (val("status") === "Abandoned") {
-    if (!minuteOk(val("abandonMin"))) bad("abandonMin", "Enter the minute the match was stopped");
-    if (!val("abandonReason")) bad("abandonReason", "Pick why the match was abandoned");
-    if (CONDUCT_ABANDON.includes(val("abandonReason")) && !val("abandonTeam")) bad("abandonTeam", "Pick which team was responsible for the abandonment");
-  }
-  if (val("status") === "Forfeit") {
-    if (!val("forfeitTeam")) bad("forfeitTeam", "Pick the forfeiting team");
-    if (!val("forfeitReason")) bad("forfeitReason", "Pick the forfeit reason");
-  }
-  // kickoff more than 15 minutes late (§4.2.7)
-  if (val("kickoff") && val("actualKO") && val("status") === "Completed") {
-    const [h1, m1] = val("kickoff").split(":").map(Number), [h2, m2] = val("actualKO").split(":").map(Number);
-    const late = (h2 * 60 + m2) - (h1 * 60 + m1);
-    if (late > 15 && pmVal("ready") !== "problem" && !val("notes")) warns.push(`Kickoff was ${late} minutes late – mark which team wasn't ready, or explain in the notes (more than 15 minutes is grounds for a forfeit, §4.2.7)`);
-  }
-  // items that need a description
-  const needNotes = [["c_eligibility", "the possible ineligible player"], ["c_spectator", "spectator conduct"]]
-    .filter(([id]) => chk(id)).map(([, t]) => t);
-  if (needNotes.length && val("notes").length < 15) bad("notes", "Describe " + needNotes.join(", ") + " in the notes box");
-  if (played) {
-    if (val("homeScore") === "") bad("homeScore", "Home score is missing");
-    if (val("awayScore") === "") bad("awayScore", "Away score is missing");
-  }
-
-  // dates
-  if (val("gameDate")) {
-    const ko = new Date(val("gameDate") + "T" + (val("kickoff") || "12:00"));
-    const now = new Date();
-    if (ko - now > 3600e3) bad("gameDate", "Game date is in the future");
-    const hrs = (now - ko) / 3600e3;
-    if (hrs > CONFIG.reportWindowHours + 2) warns.push(`This report is about ${Math.round(hrs)} hours after kickoff – reports are due within ${CONFIG.reportWindowHours} hours`);
-  }
-
-  // goals
-  const goals = rows("goal");
-  const filled = v => !!v;
-  $$("#goals .row").forEach(r => {      // own-team scorers need number + name; opponent rows only need the minute
-    const own = r.querySelector(".g-team").value === me;
-    [["g-num", own], ["g-name", own], ["g-min", true]].forEach(([c, need]) => { const el = r.querySelector("." + c); if (need && !(c === "g-min" ? minuteOk(el.value.trim()) : el.value.trim())) el.classList.add("invalid"); });
+/* ---------- match day checks (same questions as the conference's post-match form) ---------- */
+// who: "home" = the home team's responsibility, "us" / "them" = the submitting club / its opponent
+const CHECKS = [
+  { k: "walkout",  r: "Walkout",                        t: "Pre-match walkout done", s: "Both teams and referees line up at center field (§4.2.1)" },
+  { k: "physio",   r: "Physio",                         t: "Home team had a physio / medical person and medical kit", s: "§4.2.1, §8.3.2" },
+  { k: "film",     r: "Match film",                     t: "Home team filmed the match", s: "§7.1.6" },
+  { k: "balls",    r: "Balls",                          t: "Enough match balls (at least 6)", s: "§4.2.1" },
+  { k: "flags",    r: "Corner flags",                   t: "Corner flags in place", s: "§4.2.1" },
+  { k: "refCare",  r: "Water, table & chairs for referees", t: "Water, a table and chairs for the referees", s: "§4.1, §4.2.1" },
+  { k: "restroom", r: "Public restroom facilities",     t: "Public restrooms at or near the field", s: "§4.1" },
+  { k: "techArea", r: "Technical area",                 t: "Technical areas marked next to each bench", s: "§4.1" },
+  { k: "ourCards", r: "Our sub cards & printed roster",  t: "We gave the referee substitution cards and a printed roster", s: "§4.2.2, §4.2.4" },
+  { k: "oppCards", r: "Opponent sub cards & printed roster", t: "Our opponent gave the referee substitution cards and a printed roster", s: "§4.2.2, §4.2.4" },
+];
+const ANSWERS = [["yes", "Yes"], ["no", "No"], ["unsure", "Unsure"]];
+$("#checkList").innerHTML = CHECKS.map(c => `<div class="pm" data-k="${c.k}">
+    <div class="pm-q"><span>${c.t}<small>${c.s}</small></span>
+      <div class="seg seg3">${ANSWERS.map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join("")}</div></div>
+    <input type="hidden" id="q_${c.k}">
+    <div class="pm-detail hidden"><div class="pm-extra"><div class="full"><input id="n_${c.k}" placeholder="What was missing? (optional)"></div></div></div>
+  </div>`).join("");
+function paintChecks() {
+  $$(".pm").forEach(el => {
+    const v = $("#q_" + el.dataset.k).value;
+    el.classList.toggle("is-ok", v === "yes"); el.classList.toggle("is-problem", v === "no"); el.classList.toggle("is-unsure", v === "unsure");
+    el.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+    el.querySelector(".pm-detail").classList.toggle("hidden", v !== "no");
   });
-  markRows("sub", { "s-on": filled, "s-onName": filled, "s-off": filled, "s-offName": filled, "s-min": minuteOk });
-  markRows("card", { "k-min": minuteOk });
-  goals.forEach((g, i) => {
-    const own = g["g-team"] === me;
-    const miss = [own && !g["g-num"] && "number", own && !g["g-name"] && "name", !minuteOk(g["g-min"]) && "minute"].filter(Boolean);
-    if (miss.length) errors.push(`Goal ${i + 1}: ${own ? "scorer " : ""}${miss.join(", ")} missing or invalid`);
-  });
-  if (played && me && val("homeScore") !== "" && val("awayScore") !== "") {
-    const ownScore = +val(me + "Score"), oppScore = +val(opp + "Score");
-    const ownGoals = goals.filter(g => g["g-team"] === me).length, oppGoals = goals.filter(g => g["g-team"] === opp).length;
-    if (ownGoals !== ownScore) errors.push(`You listed ${ownGoals} goal${ownGoals === 1 ? "" : "s"} for ${myTeam()}, but the score says ${ownScore} – add every one of your scorers`);
-    if (oppGoals > oppScore) errors.push(`You listed ${oppGoals} goals for ${teamName(opp)}, more than their score of ${oppScore}`);
-  }
-
-  // cards
-  const cards = rows("card");
-  cards.forEach((c, i) => {
-    if (!c["k-num"] && !c["k-name"]) errors.push(`Card ${i + 1}: add a number or name`);
-    if (!minuteOk(c["k-min"])) errors.push(`Card ${i + 1}: minute is missing or invalid`);
-  });
-  const seen = {};
-  cards.forEach(c => {
-    const key = c["k-team"] + "#" + (c["k-num"] || c["k-name"]).toLowerCase();
-    if (c["k-type"] === "Yellow") { seen[key] = (seen[key] || 0) + 1; if (seen[key] === 2) warns.push(`${teamName(c["k-team"])} ${c["k-num"] ? "#" + c["k-num"] : c["k-name"]} has two separate yellows – log the second as "Second yellow (red)"`); }
-  });
-
-  // subs
-  const subs = rows("sub"); const subMsgs = [];
-  subs.forEach((s, i) => {
-    const miss = [!s["s-on"] && "on #", !s["s-onName"] && "player on name", !s["s-off"] && "off #", !s["s-offName"] && "player off name", !minuteOk(s["s-min"]) && "minute"].filter(Boolean);
-    if (miss.length) errors.push(`Substitution ${i + 1}: ${miss.join(", ")} missing`);
-  });
-  const ownSubs = subs.filter(x => x["s-team"] === me);
-  if (played && me && !ownSubs.length && !chk("noSubs")) errors.push("Add every substitution your team made, or tick “Our team made no substitutions”");
-  if (ownSubs.length && chk("noSubs")) errors.push("You ticked “Our team made no substitutions” but also listed some");
-  ["home", "away"].forEach(t => {
-    const ts = subs.filter(s => s["s-team"] === t);
-    const normal = ts.filter(s => s["s-type"] === "Normal").length;
-    const conc = ts.filter(s => s["s-type"] === "Concussion").length;
-    if (normal > CONFIG.maxSubs) subMsgs.push(`${teamName(t)} used ${normal} normal subs (limit ${CONFIG.maxSubs})`);
-    if (conc > 1) subMsgs.push(`${teamName(t)} used ${conc} concussion subs (limit 1)`);
-    const addl = ts.filter(s => s["s-type"].startsWith("Additional")).length;
-    const oppConc = subs.filter(s => s["s-team"] !== t && s["s-type"] === "Concussion").length;
-    if (addl > oppConc) subMsgs.push(`${teamName(t)} used an additional sub without the opponent using a concussion sub`);
-    const offIds = new Set(ts.map(s => s["s-off"]));
-    ts.forEach(s => { if (offIds.has(s["s-on"]) && s["s-type"] !== "Concussion") subMsgs.push(`${teamName(t)} #${s["s-on"]} re-entered after being subbed off (no re-entry)`); });
-  });
-  $("#subWarn").innerHTML = subMsgs.length ? `<div class="notice warn">Possible rule violation – the office will review:<ul>${subMsgs.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : "";
-  subMsgs.forEach(m => warns.push(m));
-
-  // uploads
-  const notPlayed = val("status") === "Not played";
-  const weForfeited = val("status") === "Forfeit" && val("forfeitTeam") === me;
-  if (!notPlayed && !weForfeited && !files.mine.length) errors.push("Your team's roster form photo is missing");
-  const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
-  if (tb > cap) errors.push(`Attachments total ${mb(tb)} – remove something to get under ${CONFIG.totalUploadMB} MB`);
-
-  // supplemental
-  const reasons = suppReasons(cards);
-  if (reasons.length && val("suppText").length < 40 && !files.supp.length) bad("suppText", "A team statement is needed for: " + reasons.join(", "));
-
-  // physio consistency
-
-  if (!chk("attest")) errors.push("Tick the confirmation box");
-  return { errors, warns, reasons };
 }
-function suppReasons(cards = rows("card")) {
-  const r = [], me = mySide();
-  const reds = cards.filter(c => isRed(c) && c["k-team"] === me);
-  if (reds.length) r.push(`${reds.length} send-off${reds.length > 1 ? "s" : ""} for your team`);
-  if (chk("c_injury")) r.push("serious injury");
-  if (val("status") === "Abandoned") r.push("abandoned match");
-  if (val("status") === "Forfeit" && CONDUCT_FORFEIT.includes(val("forfeitReason"))) r.push("forfeit for conduct");
-  if (chk("c_refusedLeave")) r.push("sent-off person refused to leave");
-  if (chk("c_discrim")) r.push("discriminatory conduct");
-  if (chk("c_refConcern")) r.push("referee crew concern");
-  if (chk("c_protest")) r.push("intended protest");
-  return r;
-}
-function statusText() {
-  const st = val("status");
-  if (st === "Abandoned") return `Abandoned in minute ${val("abandonMin") || "?"} – ${val("abandonReason") || "reason not given"}` +
-    (CONDUCT_ABANDON.includes(val("abandonReason")) && val("abandonTeam") ? ` (responsible: ${val("abandonTeam") === "both" ? "both teams" : teamName(val("abandonTeam"))})` : "");
-  if (st === "Forfeit") return `Forfeit by ${val("forfeitTeam") ? teamName(val("forfeitTeam")) : "?"} – ${val("forfeitReason") || "reason not given"}`;
-  return st;
-}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".seg button"); if (!b) return;
+  const k = b.closest(".pm").dataset.k;
+  $("#q_" + k).value = b.dataset.v; paintChecks(); refresh();
+});
+const answer = k => { const v = val("q_" + k); return v ? ANSWERS.find(a => a[0] === v)[1] : ""; };
 
-/* ---------- report text ---------- */
-function itemLine(it) {
-  const v = pmVal(it.k), label = it.r;
-  if (v === "ok") return `  ✓ ${label}`;
-  if (v === "problem") return `  ✗ PROBLEM – ${label}: ${itemDetail(it) || "no details"} (${it.s.replace(/^.*\((§[^)]*)\).*$/, "$1")})`;
-  return `  – ${label}: not answered`;
-}
-function buildReport() {
-  const L = [], H = val("home") || "Home", A = val("away") || "Away";
-  const line = (k, v) => v && L.push(`${k}: ${v}`);
-  L.push(`APSL TEAM MATCH REPORT`, ``);
-  line("Submitted for", myTeam() ? `${myTeam()} (${mySide()})` : "");
-  line("Date", val("gameDate")); line("Scheduled KO", val("kickoff")); line("Actual KO", val("actualKO"));
-  line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", statusText());
-  L.push(``, `RESULT: ${H} ${val("homeScore") || "-"} – ${val("awayScore") || "-"} ${A}`);
-  const goals = rows("goal").sort((a, b) => minuteNum(a["g-min"] || "0") - minuteNum(b["g-min"] || "0"));
-  if (goals.length) { L.push(``, `GOALS`); goals.forEach(g => L.push(`  ${g["g-min"]}'  ${teamName(g["g-team"])}  #${g["g-num"]} ${g["g-name"]}${g["g-type"] === "Penalty" ? " (pen)" : g["g-type"] === "Own goal" ? " (OG – " + teamName(g["g-team"] === "home" ? "away" : "home") + " player)" : ""}`)); }
-  const cards = rows("card");
-  if (cards.length) { L.push(``, `CARDS`); cards.forEach(c => L.push(`  ${c["k-min"]}'  ${c["k-type"].toUpperCase()}  ${teamName(c["k-team"])}  ${c["k-num"] ? "#" + c["k-num"] + " " : ""}${c["k-name"]} – ${c["k-reason"]}`)); }
-  const subs = rows("sub").sort((a, b) => minuteNum(a["s-min"] || "0") - minuteNum(b["s-min"] || "0"));
-  if (subs.length) { L.push(``, `SUBSTITUTIONS`); subs.forEach(s => L.push(`  ${s["s-min"]}'  ${teamName(s["s-team"])}  ON #${s["s-on"]} ${s["s-onName"]}  /  OFF #${s["s-off"]} ${s["s-offName"]}${s["s-type"] !== "Normal" ? " (" + s["s-type"] + ")" : ""}`)); }
-  else if (chk("noSubs")) L.push(``, `SUBSTITUTIONS: none`);
-  L.push(``, `SUBMITTED BY`);
-  line("  Name", `${val("refName")} (${val("refRole")}) · ${val("refPhone")} · ${val("refEmail")}`);
-  L.push(``, `MATCH OFFICIALS (as reported by the club)`);
-  line("  Referee", val("offRef") || "not given"); line("  AR1", val("offAR1")); line("  AR2", val("offAR2"));
-  L.push(``, `MATCH DAY CHECKS (${myTeam() || "club"}'s view)`);
-  TEAM_ITEMS.forEach(it => L.push(itemLine(it)));
-  line(`  Physio (home)`, val("physioHome")); line(`  Physio (away)`, val("physioAway"));
-  if (val("refRating") || val("refComments")) { L.push(``, `REFEREE CREW ASSESSMENT`); line("  Rating", val("refRating")); if (val("refComments")) L.push("  " + val("refComments")); }
-  const flags = [["c_injury", "Serious injury"], ["c_refusedLeave", "SENT-OFF PERSON REFUSED TO LEAVE"],
-    ["c_spectator", "Spectator/non-player misconduct (§8.3.5)"], ["c_discrim", "DISCRIMINATORY CONDUCT (§8.2)"],
-    ["c_eligibility", "OPPONENT MAY HAVE USED AN INELIGIBLE PLAYER (§8.3.4)"], ["c_refConcern", "CONCERN ABOUT REFEREE CREW CONDUCT"],
-    ["c_protest", "CLUB INTENDS TO PROTEST (§8.6)"]].filter(([id]) => chk(id)).map(([, t]) => t);
-  L.push(``, `INCIDENTS: ${flags.length ? "" : "none"}`); flags.forEach(f => L.push(`   • ${f}`));
-  if (val("notes")) L.push(``, `NOTES`, val("notes"));
-  if (val("suppText")) L.push(``, `TEAM STATEMENT`, val("suppText"));
-  const att = [["Own roster", files.mine], ["Opponent roster", files.opp], ["Supporting files", files.supp]].filter(([, a]) => a.length)
-    .map(([k, a]) => `${k}: ${a.length} file${a.length > 1 ? "s" : ""}`);
-  L.push(``, `ATTACHMENTS: ${att.join(" · ") || "none"}`);
-  return L.join("\n");
-}
-
-/* ---------- UI refresh, drafts ---------- */
-let saveT;
-function refresh() {
-  const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
-  $("#budgetText").textContent = `${mb(tb)} of ${CONFIG.totalUploadMB} MB used`;
-  $("#budgetBar").style.width = Math.min(100, tb / cap * 100) + "%";
-  $("#budgetBar").style.background = tb > cap ? "var(--accent)" : "var(--ok)";
-  $("#mineLabel").textContent = myTeam() ? myTeam() + "'s" : "Your team's";
-  $("#oppLabel").textContent = oppSide() ? teamName(oppSide()) + "'s" : "Opponent's";
-  $("#abandonWrap").classList.toggle("hidden", val("status") !== "Abandoned");
-  $("#forfeitWrap").classList.toggle("hidden", val("status") !== "Forfeit");
-  $("#abandonTeamWrap").classList.toggle("hidden", !CONDUCT_ABANDON.includes(val("abandonReason")));
-  const reasons = suppReasons();
-  $("#suppReq").classList.toggle("hidden", !reasons.length);
-  $("#suppHint").innerHTML = reasons.length
-    ? `<strong style="color:var(--accent)">Required because of: ${esc(reasons.join(", "))}.</strong> Describe what happened from your club's point of view.`
-    : "Your club's account of anything the league should know. Required for a send-off for your team, serious injury, abandoned match, forfeit caused by conduct, discriminatory conduct, a referee concern, or an intended protest.";
-  $("#preview").textContent = buildReport();
-  clearTimeout(saveT); saveT = setTimeout(saveDraft, 400);
-}
-document.addEventListener("input", refresh);
-document.addEventListener("change", refresh);
-
-const FIELD_IDS = () => $$("#f input[id],#f select[id],#f textarea[id]").filter(el => el.type !== "file");
-function saveDraft() {
-  const d = { f: {}, rows: { goal: rows("goal"), card: rows("card"), sub: rows("sub") } };
-  FIELD_IDS().forEach(el => d.f[el.id] = el.type === "checkbox" ? el.checked : el.value);
-  delete d.f.attest;
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {}
-}
-function loadDraft() {
-  let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
-  if (!d) {   // remember ref identity between matches
-    try { const me = JSON.parse(localStorage.getItem("apsl-team-me") || "null"); if (me) for (const k in me) document.getElementById(k).value = me[k]; } catch (e) {}
-    return;
-  }
-  FIELD_IDS().forEach(el => { if (d.f[el.id] != null) el.type === "checkbox" ? el.checked = d.f[el.id] : el.value = d.f[el.id]; });
-  for (const k in d.rows) d.rows[k].forEach(r => addRow(k, r));
-}
-/* ---------- conferences and clubs (from the Clubs tab of the Referee Report Settings sheet) ---------- */
-// Fallback only – used if the page can't reach the settings sheet. Keep in step with DEFAULT_CLUBS in Code.gs.
+/* ---------- conferences and clubs ---------- */
 const DEFAULT_SETUP = { conferences: [
   ["Constitution Conference (Connecticut)", "Caribbean FCA|Glastonbury Celtic|Hermandad Connecticut|KO Elites|Southwest FC|United Holyoke FC"],
   ["Delaware River Conference (Pennsylvania & New Jersey)", "Colonial SC|Feelsgood FC|Jersey Shore Boca|Lighthouse 1893 SC|Medford Strikers|Oaklyn United FC|Persepolis United FC|Philadelphia Heritage SC|Philadelphia Soccer Club|Philadelphia Ukrainian Nationals|Real Central NJ Soccer|Sewell Old Boys FC|Vereinigung Erzgebirge Majors|Vidas United FC|WC Predators|Westtown FC"],
@@ -839,58 +296,85 @@ const DEFAULT_SETUP = { conferences: [
   ["Trinity Conference (Texas)", "AC Arlington FC|Chin Hills FC|DFW Super Eagles|Foro SC|ICE FC/Black Ice|Midcities FC|Texas Rage FC|Union Vale FC"],
 ].map(([name, clubs]) => ({ name, clubs: clubs.split("|") })) };
 let SETUP = DEFAULT_SETUP;
-const opt = (v, t) => `<option value="${esc(v)}">${esc(t ?? v)}</option>`;
 function toggleOther(id) { const o = $("#" + id + "Other"); if (o) o.classList.toggle("hidden", $("#" + id).value !== OTHER); }
-function fillTeams() {
+function fillClubs() {
   const c = SETUP.conferences.find(x => x.name === $("#division").value);
-  ["home", "away"].forEach(id => {
+  ["club", "opponent"].forEach(id => {
     const el = $("#" + id), keep = el.value;
-    el.innerHTML = c
-      ? opt("", id === "home" ? "Select home team" : "Select away team") + c.clubs.map(n => opt(n)).join("") + opt(OTHER, "Other / not in this conference…")
-      : opt("", "Select conference first");
+    el.innerHTML = c ? opt("", "Select…") + c.clubs.map(n => opt(n)).join("") + opt(OTHER, "Other / not listed…") : opt("", "Select conference first");
     if ([...el.options].some(o => o.value === keep)) el.value = keep;
     toggleOther(id);
   });
-  $("#home").dispatchEvent(new Event("change"));
 }
-$("#division").addEventListener("change", fillTeams);
-["home", "away"].forEach(id => $("#" + id).addEventListener("change", () => toggleOther(id)));
+$("#division").addEventListener("change", fillClubs);
+["club", "opponent"].forEach(id => $("#" + id).addEventListener("change", () => toggleOther(id)));
+
+/* ---------- validation ---------- */
+function validate() {
+  const errors = [], warns = [];
+  $$(".invalid").forEach(el => el.classList.remove("invalid"));
+  const bad = (id, msg) => { document.getElementById(id)?.classList.add("invalid"); document.getElementById(id + "Other")?.classList.add("invalid"); errors.push(msg); };
+  const required = { division: "Conference", gameDate: "Date of the match", side: "Home or away", club: "Your club", opponent: "Your opponent", subName: "Your name", subEmail: "Email" };
+  for (const [id, label] of Object.entries(required)) if (!val(id)) bad(id, `${label} is missing`);
+  if (val("subEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("subEmail"))) bad("subEmail", "Email looks invalid");
+  if (val("club") && val("club").toLowerCase() === val("opponent").toLowerCase()) bad("opponent", "Your club and your opponent are the same");
+  if (val("gameDate")) {
+    const d = new Date(val("gameDate") + "T12:00"), days = (Date.now() - d) / 864e5;
+    if (isNaN(d) || d.getFullYear() < 2020) bad("gameDate", "Check the match date");
+    else if (days < -1) bad("gameDate", "The match date is in the future");
+    else if (days > 30) warns.push(`This match was ${Math.round(days)} days ago – double-check the date`);
+  }
+  CHECKS.forEach(c => { if (!val("q_" + c.k)) { $(`.pm[data-k="${c.k}"]`).classList.add("invalid"); errors.push(`Answer “${c.r}”`); } });
+  if (!chk("attest")) errors.push("Tick the verification box");
+  return { errors, warns };
+}
+
+/* ---------- report ---------- */
+const home = () => val("side") === "home" ? val("club") : val("opponent");
+const away = () => val("side") === "home" ? val("opponent") : val("club");
+function buildReport() {
+  const L = [];
+  L.push("APSL CLUB POST-MATCH REPORT", "");
+  L.push(`Match: ${home() || "?"} v ${away() || "?"} (${val("gameDate") || "date?"})`);
+  L.push(`Conference: ${val("division")}`);
+  L.push(`Submitted by: ${val("subName")} for ${val("club") || "?"} (${val("side") || "?"}) · ${val("subEmail")}`, "");
+  L.push("MATCH DAY CHECKS");
+  CHECKS.forEach(c => L.push(`  ${(answer(c.k) || "–").padEnd(6)} ${c.r}${val("q_" + c.k) === "no" && val("n_" + c.k) ? " – " + val("n_" + c.k) : ""}`));
+  if (val("comments")) L.push("", "COMMENTS", val("comments"));
+  return L.join("\n");
+}
+
+/* ---------- refresh, drafts ---------- */
+let saveT;
+function refresh() { $("#preview").textContent = buildReport(); clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
+document.addEventListener("input", refresh);
+document.addEventListener("change", refresh);
+const FIELDS = () => $$("#f input[id],#f select[id],#f textarea[id]");
+function saveDraft() {
+  const d = {}; FIELDS().forEach(el => d[el.id] = el.type === "checkbox" ? el.checked : el.value); delete d.attest;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {}
+}
+function loadDraft() {
+  let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
+  if (!d) { try { d = JSON.parse(localStorage.getItem("apsl-club-me") || "null"); } catch (e) {} }
+  if (!d) return;
+  if (d.division != null) { $("#division").value = d.division; fillClubs(); }
+  FIELDS().forEach(el => { if (d[el.id] != null) el.type === "checkbox" ? el.checked = d[el.id] : el.value = d[el.id]; });
+  ["club", "opponent"].forEach(toggleOther);
+}
 function startForm(setup) {
   if (setup && setup.conferences && setup.conferences.length) SETUP = setup;
   $("#division").innerHTML = opt("", "Select conference") + SETUP.conferences.map(c => opt(c.name)).join("");
-  loadDraft();
-  fillTeams();                     // build team lists for the restored conference…
-  let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
-  if (d && d.f) ["home", "away"].forEach(id => { if (d.f[id] != null) { $("#" + id).value = d.f[id]; toggleOther(id); } });   // …then restore teams
-  $("#home").dispatchEvent(new Event("change"));
-  paintItems();
-  refresh();
+  loadDraft(); paintChecks(); refresh();
 }
 if (window.google && google.script && google.script.run) {
   google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
 } else startForm(null);
 
-/* ---------- start another match (in place, so it also works when embedded) ---------- */
-$("#startAnother").addEventListener("click", () => {
-  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-  $$("#goals .row,#cards .row,#subs .row").forEach(x => x.remove());
-  Object.keys(files).forEach(k => { files[k] = []; renderThumbs(k); });
-  const keep = ["refName", "refRole", "refPhone", "refEmail", "division", "side"];
-  FIELD_IDS().filter(el => !keep.includes(el.id)).forEach(el => {
-    if (el.type === "checkbox") el.checked = false; else if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = "";
-  });
-  $("#status").value = "Completed"; fillTeams(); paintItems();
-  $("#problems").innerHTML = ""; $("#sendStatus").innerHTML = "";
-  const btn = $("#submitBtn"); btn.disabled = false; btn.textContent = "Submit report";
-  $("#doneView").classList.add("hidden"); $("#f").classList.remove("hidden");
-  scrollTo(0, 0); refresh();
-});
-
 /* ---------- submit ---------- */
 $("#f").addEventListener("submit", e => {
   e.preventDefault();
-  const { errors, warns } = validate();
-  const box = $("#problems");
+  const { errors, warns } = validate(), box = $("#problems");
   box.innerHTML = "";
   if (errors.length) box.innerHTML += `<div class="notice err"><strong>Fix before submitting:</strong><ul>${errors.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>`;
   if (warns.length) box.innerHTML += `<div class="notice warn"><strong>Check these:</strong><ul>${warns.map(m => `<li>${esc(m)}</li>`).join("")}</ul>${errors.length ? "" : "If they're correct, tap Submit again."}</div>`;
@@ -899,44 +383,36 @@ $("#f").addEventListener("submit", e => {
   if (warns.length && box.dataset.ack !== sig) { box.dataset.ack = sig; box.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   send(warns);
 });
-
-function readB64(file) {
-  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
-}
 async function send(warns) {
-  try { localStorage.setItem("apsl-team-me", JSON.stringify({ refName: val("refName"), refRole: val("refRole"), refPhone: val("refPhone"), refEmail: val("refEmail") })); } catch (e) {}
+  try { localStorage.setItem("apsl-club-me", JSON.stringify({ division: $("#division").value, club: $("#club").value, clubOther: $("#clubOther").value, subName: val("subName"), subEmail: val("subEmail") })); } catch (e) {}
   const btn = $("#submitBtn"), status = $("#sendStatus");
   btn.disabled = true; btn.textContent = "Sending…"; status.innerHTML = "";
   try {
-    const tag = myTeam().replace(/[^A-Za-z0-9]+/g, "");
-    const label = { mine: `${tag}_own-roster`, opp: `${tag}_opponent-roster`, supp: `${tag}_statement` };
-    const out = [];
-    for (const slot of ["mine", "opp", "supp"]) for (const [i, p] of files[slot].entries()) {
-      const ext = (p.file.name.match(/\.\w+$/) || [".jpg"])[0];
-      out.push({ name: `${val("gameDate")}_${label[slot]}_${i + 1}${ext}`, type: p.file.type, data: await readB64(p.file) });
-    }
-    const fields = {};
-    ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","refName","refRole","refPhone","refEmail","side"].forEach(k => fields[k] = val(k));
-    fields.status = statusText(); fields.statusCode = val("status"); fields.team = myTeam(); fields.officialRef = val("offRef");
-    const payload = { fields, report: buildReport(), files: out, statementReasons: suppReasons().join(", "), protest: chk("c_protest"), warnings: warns.join(" | "), website: val("website") };
-    let j;
-    if (window.google && google.script && google.script.run) {        // served by Apps Script
-      j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(new Error(e && e.message || "Upload failed – check your connection."))).submitReport(JSON.stringify(payload)));
-    } else {                                                           // hosted elsewhere
-      if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) throw new Error("This page isn't connected to the league's server yet.");
-      const res = await fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-      j = await res.json().catch(() => ({ ok: false, error: "Unexpected response from server." }));
-    }
-    if (!j.ok) throw new Error(j.error || "The server rejected the report.");
+    const answers = {}, notes = {};
+    CHECKS.forEach(c => { answers[c.k] = answer(c.k); notes[c.k] = val("n_" + c.k); });
+    const payload = { division: val("division"), gameDate: val("gameDate"), side: val("side"), club: val("club"), opponent: val("opponent"),
+      home: home(), away: away(), name: val("subName"), email: val("subEmail"), answers, notes, comments: val("comments"),
+      report: buildReport(), warnings: warns.join(" | "), website: val("website") };
+    if (!(window.google && google.script && google.script.run)) throw new Error("This page isn't connected to the league's server.");
+    const j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res)
+      .withFailureHandler(e => rej(new Error(e && e.message || "Couldn't send – check your connection."))).submitClubReport(JSON.stringify(payload)));
+    if (!j || !j.ok) throw new Error((j && j.error) || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
     $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
-
   } catch (err) {
     btn.disabled = false; btn.textContent = "Submit report";
-    status.innerHTML = `<div class="notice err"><strong>Not sent.</strong> ${esc(err.message || err)}<br>Your entries are saved on this device – try again, or email your report to <a href="mailto:${CONFIG.officeEmail}">${CONFIG.officeEmail}</a>.</div>`;
-    status.scrollIntoView({ behavior: "smooth", block: "center" });
+    status.innerHTML = `<div class="notice err"><strong>Not sent.</strong> ${esc(err.message || err)} Your answers are saved on this device – try again.</div>`;
   }
 }
+$("#startAnother").addEventListener("click", () => {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  const keep = ["division", "club", "clubOther", "subName", "subEmail"];
+  FIELDS().filter(el => !keep.includes(el.id)).forEach(el => { if (el.type === "checkbox") el.checked = false; else if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+  toggleOther("opponent"); paintChecks();
+  const btn = $("#submitBtn"); btn.disabled = false; btn.textContent = "Submit report";
+  $("#problems").innerHTML = ""; $("#sendStatus").innerHTML = "";
+  $("#doneView").classList.add("hidden"); $("#f").classList.remove("hidden"); scrollTo(0, 0); refresh();
+});
 </script>
 </body>
 </html>

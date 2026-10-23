@@ -1,39 +1,36 @@
-# APSL Team Match Report
+# APSL Club Post-Match Report
 
-A club-side version of the Referee Match Report. A manager or club official from either team submits
-the result, their own scorers, cards and subs, a roster photo, a view of the officials and match-day
-conditions, and a team statement when something happened. It can run alongside the referee form (to
-validate it) or on its own (in place of it).
+A short compliance check each club files after every match. It asks the same questions as the conference
+"APSL Post Match Report 2026-27" Google Form, rebuilt so the answers are clean enough to act on:
 
-Separate Apps Script project, separate link, separate Drive folder – nothing here changes the referee form.
+- Conference, club and opponent are **dropdowns** (with "Other" for anything not listed) – no more "PK FC" / "Praira Capital".
+- The match date is a date picker and is **checked** – no more year "0026".
+- Every question is **Yes / No / Unsure** only – no free text in answer columns. A "No" can carry a short note.
+- Questions say **whose** job it is (e.g. "Home team had a physio") and cite the handbook section.
+- The club says whether it was **home or away**, so each report knows the home team.
+
+Clubs do **not** report scores, scorers, cards, subs or photos – that stays with the referee.
 
 ## What happens on submit
 
-1. Files go to **APSL Team Match Reports / `<date> · Home v Away`** in Drive (both clubs' reports share the match folder).
-2. A row is added to the **Team Reports Log** sheet.
-3. **Cross-check:** the result is compared with the other club's report and the referee's report for the same
-   match (same date, same home and away teams). Any difference puts **[SCORE MISMATCH]** in the email subject.
-4. The report is emailed to the league office, copying the **conference commissioner** (column D of the
-   Assignors tab). Referee assignors are never copied.
-5. The submitter gets a confirmation email.
+1. A row is added to the **Club Post-Match Reports** sheet – same column order and headers as the old form's
+   response sheet, plus Home/Away, Submitted by and Other club.
+2. If the other club has already reported the same match, the answers are compared. Disagreements on the
+   home-team items, the walkout, or each other's sub cards & roster put **[CLUBS DISAGREE]** in the subject.
+   "Unsure" never counts as a disagreement.
+3. The office gets the report, copied to the **conference commissioner** (column D of the Assignors tab).
+   Every "No" is listed in the subject, e.g. `[No: Physio, Balls]`. Referee assignors are never copied.
+4. The submitter gets a copy.
 
 ## Setup (about 5 minutes)
 
-1. Create a **new** Apps Script project (script.google.com → New project), signed in as asexton@apslsoccer.com.
+1. New Apps Script project (script.google.com → New project), signed in as asexton@apslsoccer.com.
 2. Paste `Code.gs`. Add an HTML file named **Index** and paste `Index.html`. Save.
-3. Optional – share one club list and one commissioner list with the referee form: paste the referee
-   system's **Referee Report Settings** sheet ID into `SETTINGS_SHEET_ID` at the top of `Code.gs`.
-   Leave it blank to get a separate **Team Report Settings** sheet.
+3. Optional – share one club list and one commissioner list with the referee form: paste the referee system's
+   **Referee Report Settings** sheet ID into `SETTINGS_SHEET_ID`. Leave blank for a separate **Club Report Settings** sheet.
 4. Run **setup** once and approve the permissions.
-5. Deploy → New deployment → Web app → Execute as **Me**, Who has access **Anyone** → Deploy.
-6. Test: submit a report and check the office email.
+5. Deploy → New deployment → Web app → Execute as **Me**, Who has access **Anyone**.
+6. Fill in commissioner emails (column D of the Assignors tab), then send a test report.
 
-To update later: Deploy → **Manage deployments** → pencil → **New version** → Deploy (keeps the same link).
+To update later: Deploy → **Manage deployments** → pencil → **New version** (keeps the same link).
 When testing is done, change `OFFICE_EMAIL` to `office@apslsoccer.com`.
-
-## Notes
-
-- `REF_LOG_SHEET_ID` is already set to the referee system's Referee Reports Log, so cross-checks work as soon
-  as both forms are live. Clear it to turn referee cross-checks off.
-- Cross-checks run when a **club** report arrives. If the referee's report comes in later, compare in the logs.
-- The referee assessment and comments go only to the office and commissioner.
