@@ -7,7 +7,7 @@
  *   3. Emails the full report + attachments to the league office, copying the assignor and
  *      commissioner for that conference / home team (from the "Referee Report Settings" sheet)
  *   4. Emails the referee a confirmation
- * The form's conference dropdown comes from the same settings sheet (Assignors tab, column A).
+ * The form's conference and team dropdowns come from the settings sheet's Clubs tab (Conference | Club).
  *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
@@ -27,10 +27,45 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Conference list for the form's dropdown, from the Assignors tab of the settings sheet.
+// Conferences and their clubs, as of Fall 2026. Used to seed the Clubs tab of the settings sheet;
+// after that, edit the Clubs tab (not this list) when clubs join or leave.
+const DEFAULT_CLUBS = {
+  'Constitution Conference (Connecticut)': ['Caribbean FCA', 'Glastonbury Celtic', 'Hermandad Connecticut', 'KO Elites', 'Southwest FC', 'United Holyoke FC'],
+  'Delaware River Conference (Pennsylvania & New Jersey) - Group A': ['Colonial SC', 'Jersey Shore Boca', 'Medford Strikers', 'Philadelphia Heritage SC', 'Philadelphia Soccer Club', 'Sewell Old Boys FC', 'WC Predators', 'Westtown FC'],
+  'Delaware River Conference (Pennsylvania & New Jersey) - Group B': ['Feelsgood FC', 'Lighthouse 1893 SC', 'Oaklyn United FC', 'Persepolis United FC', 'Philadelphia Ukrainian Nationals', 'Real Central NJ Soccer', 'Vereinigung Erzgebirge Majors', 'Vidas United FC'],
+  'Mayflower Conference (Massachusetts)': ['Dorchester City FC', 'Falcons FC', 'Jaguars United FC', 'New England Combine FC', 'Praia Kapital', 'Scrub Nation', 'Soley Leve', 'Somerville United FC', 'South Coast Union', 'Strictly Nos FC'],
+  'Metropolitan Conference (New York & New Jersey)': ['Central Park Rangers FC', 'Doxa SC', 'FC Sandzak', 'Hoboken FC 1912', 'Lansdowne Yonkers FC', 'Leros SC', 'NY Athletic Club', 'NY Greek Americans', 'NY Pancyprian Freedoms', 'Richmond County FC', 'SC Vistula Garfield'],
+  'Mid-Atlantic Conference - Chesapeake (Maryland)': ['Baltimore City FC', 'Delmarva Thunder', 'Germantown City FC', 'Hybrid FC', 'MoCo 1776', 'PFA APSL', 'Project 90 Gambeta', 'Prospect FC', 'Real Pelayo FC'],
+  'Mid-Atlantic Conference - Old Dominion (Virginia)': ['Club Petrolero', 'Grove Soccer United', 'Nova FC', 'Summit Valley United', 'VA Marauders FC'],
+  'Mitten Conference (Michigan)': ['Alianza FC', 'Drita SC', 'Grand Rapids SC', 'Hamtramck City FC', 'Inter Detroit', 'Livonia City FC', 'Monroe United', 'World Class FC'],
+  'Terminus Conference (Georgia)': ['Alliance SC', 'Bel Calcio FC', 'Buckhead SC', 'Georgia United FC', 'Majestic SC', 'MOBA Upper 90', 'Peachtree FC', 'Prima FC', 'Terminus FC'],
+  'Trinity Conference (Texas)': ['AC Arlington FC', 'Chin Hills FC', 'DFW Super Eagles', 'Foro SC', 'ICE FC/Black Ice', 'Midcities FC', 'Texas Rage FC', 'Union Vale FC'],
+};
+
+// Conferences and clubs for the form's dropdowns, from the Clubs tab of the settings sheet.
 function getSetup() {
-  const rows = getSettings().getSheetByName('Assignors').getDataRange().getValues().slice(1);
-  return { conferences: [...new Set(rows.map(r => String(r[0] || '').trim()).filter(Boolean))] };
+  const rows = getClubsSheet().getDataRange().getValues().slice(1);
+  const map = {};
+  rows.forEach(r => {
+    const c = String(r[0] || '').trim(), club = String(r[1] || '').trim();
+    if (!c) return;
+    (map[c] = map[c] || []);
+    if (club && !map[c].includes(club)) map[c].push(club);
+  });
+  return { conferences: Object.keys(map).map(name => ({ name, clubs: map[name].sort((a, b) => a.localeCompare(b)) })) };
+}
+function getClubsSheet() {
+  const ss = getSettings();
+  let sh = ss.getSheetByName('Clubs');
+  if (!sh) {
+    sh = ss.insertSheet('Clubs');
+    sh.appendRow(['Conference', 'Club']);
+    const rows = [];
+    Object.entries(DEFAULT_CLUBS).forEach(([c, clubs]) => clubs.forEach(club => rows.push([c, club])));
+    sh.getRange(2, 1, rows.length, 2).setValues(rows);
+    sh.setFrozenRows(1); sh.autoResizeColumns(1, 2);
+  }
+  return sh;
 }
 
 // Called by the form page (google.script.run). Takes a JSON string, returns {ok, error?}.
@@ -137,8 +172,7 @@ function getSettings() {
     DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
     const sh = ss.getSheets()[0].setName('Assignors');
     sh.appendRow(['Conference', 'Home team(s), comma-separated (leave blank for whole conference)', 'Assignor email(s), comma-separated', 'Commissioner email(s), comma-separated']);
-    ['Constitution Conference', 'Delaware River Conference', 'Mayflower Conference', 'Metropolitan Conference',
-     'Mitten Conference', 'Terminus Conference', 'Trinity Conference'].forEach(c => sh.appendRow([c, '', '']));
+    Object.keys(DEFAULT_CLUBS).forEach(c => sh.appendRow([c, '', '', '']));
     sh.setFrozenRows(1); sh.autoResizeColumns(1, 4);
     props.setProperty('SETTINGS_SHEET_ID', ss.getId());
   }
@@ -155,11 +189,20 @@ function assignorsFor(conference, home) {
     // Column B may list several teams, comma-separated. A team matches if the names are the same, or one
     // contains the other (so a ref typing "Hoboken" still matches "Hoboken FC 1912").
     const matches = t => t === h || (h.length >= 4 && t.length >= 4 && (t.includes(h) || h.includes(t)));
-    const mine = rows.filter(r => norm(r[0]) === norm(conference));
+    // A row's conference applies if it is the report's conference or the start of it, so one row for
+    // "Delaware River Conference" covers both Group A and Group B. The most specific conference row wins.
+    const k = key(conference);
+    const mine = rows.filter(r => key(r[0]) && k.startsWith(key(r[0])));
     const team = mine.filter(r => teamsIn(r[1]).some(matches));
-    const base = mine.filter(r => !norm(r[1]));
+    const confRows = mine.filter(r => !norm(r[1]));
     const emails = (list, i) => list.map(r => String(r[i] || '')).join(',').split(/[,;\s]+/).filter(isEmail);
-    const forCol = i => { const t = emails(team, i); return t.length ? t : emails(base, i); };
+    // Per column: a matching team row wins; otherwise the most specific conference row that has an email there.
+    const forCol = i => {
+      const t = emails(team, i); if (t.length) return t;
+      const filled = confRows.filter(r => emails([r], i).length);
+      const best = Math.max(0, ...filled.map(r => key(r[0]).length));
+      return emails(filled.filter(r => key(r[0]).length === best), i);
+    };
     return [...new Set([...forCol(2), ...forCol(3)])].join(',');
   } catch (e) { console.error(e); return ''; }
 }
@@ -169,4 +212,4 @@ function isEmail(s) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s || ''));
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // Run once from the editor to grant permissions and create the Drive folder + log sheet.
-function setup() { getRootFolder(); getLog(); getSettings(); MailApp.getRemainingDailyQuota(); }
+function setup() { getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota(); }

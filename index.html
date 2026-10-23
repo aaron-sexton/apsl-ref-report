@@ -127,12 +127,15 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <h2><span class="n">1</span>Match</h2>
   <div class="grid">
     <div class="full"><label for="division">Conference <span class="req">*</span></label>
-      <select id="division" required><option value="">Loading…</option></select>
-      <input id="divisionOther" class="other hidden" placeholder="Type the conference"></div>
+      <select id="division" required><option value="">Loading…</option></select></div>
     <div><label for="gameDate">Game date <span class="req">*</span></label><input id="gameDate" type="date" required></div>
     <div><label for="kickoff">Scheduled kickoff <span class="req">*</span></label><input id="kickoff" type="time" required></div>
-    <div><label for="home">Home team <span class="req">*</span></label><input id="home" required autocomplete="off" autocapitalize="words"></div>
-    <div><label for="away">Away team <span class="req">*</span></label><input id="away" required autocomplete="off" autocapitalize="words"></div>
+    <div><label for="home">Home team <span class="req">*</span></label>
+      <select id="home" required><option value="">Select conference first</option></select>
+      <input id="homeOther" class="other hidden" placeholder="Type the home team" autocapitalize="words"></div>
+    <div><label for="away">Away team <span class="req">*</span></label>
+      <select id="away" required><option value="">Select conference first</option></select>
+      <input id="awayOther" class="other hidden" placeholder="Type the away team" autocapitalize="words"></div>
     <div class="full"><label for="venue">Venue</label><input id="venue" placeholder="Field name and city" autocapitalize="words"></div>
     <div><label for="matchType">Match type</label>
       <select id="matchType"><option>Regular season</option><option>Playoff</option><option>Cup</option><option>Friendly</option></select></div>
@@ -289,7 +292,7 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-ref-draft-v3";
+const DRAFT_KEY = "apsl-ref-draft-v4";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
 
@@ -354,11 +357,11 @@ function rows(kind) {
   });
 }
 // keep team names in row dropdowns current
-["home", "away"].forEach(id => $("#" + id).addEventListener("input", () => {
+["home", "away", "homeOther", "awayOther"].forEach(id => ["input", "change"].forEach(ev => $("#" + id).addEventListener(ev, () => {
   $$(".g-team,.k-team,.s-team").forEach(sel => {
     sel.options[0].text = val("home") || "Home"; sel.options[1].text = val("away") || "Away";
   });
-}));
+})));
 
 /* ---------- files ---------- */
 $$("input[type=file]").forEach(inp => inp.addEventListener("change", async () => {
@@ -597,16 +600,46 @@ function loadDraft() {
   FIELD_IDS().forEach(el => { if (d.f[el.id] != null) el.type === "checkbox" ? el.checked = d.f[el.id] : el.value = d.f[el.id]; });
   for (const k in d.rows) d.rows[k].forEach(r => addRow(k, r));
 }
-/* ---------- conference list (from the Referee Report Settings sheet) ---------- */
-const DEFAULT_CONFERENCES = ["Constitution Conference", "Delaware River Conference", "Mayflower Conference",
-  "Metropolitan Conference", "Mitten Conference", "Terminus Conference", "Trinity Conference"];
+/* ---------- conferences and clubs (from the Clubs tab of the Referee Report Settings sheet) ---------- */
+// Fallback only – used if the page can't reach the settings sheet. Keep in step with DEFAULT_CLUBS in Code.gs.
+const DEFAULT_SETUP = { conferences: [
+  ["Constitution Conference (Connecticut)", "Caribbean FCA|Glastonbury Celtic|Hermandad Connecticut|KO Elites|Southwest FC|United Holyoke FC"],
+  ["Delaware River Conference (Pennsylvania & New Jersey) - Group A", "Colonial SC|Jersey Shore Boca|Medford Strikers|Philadelphia Heritage SC|Philadelphia Soccer Club|Sewell Old Boys FC|WC Predators|Westtown FC"],
+  ["Delaware River Conference (Pennsylvania & New Jersey) - Group B", "Feelsgood FC|Lighthouse 1893 SC|Oaklyn United FC|Persepolis United FC|Philadelphia Ukrainian Nationals|Real Central NJ Soccer|Vereinigung Erzgebirge Majors|Vidas United FC"],
+  ["Mayflower Conference (Massachusetts)", "Dorchester City FC|Falcons FC|Jaguars United FC|New England Combine FC|Praia Kapital|Scrub Nation|Soley Leve|Somerville United FC|South Coast Union|Strictly Nos FC"],
+  ["Metropolitan Conference (New York & New Jersey)", "Central Park Rangers FC|Doxa SC|FC Sandzak|Hoboken FC 1912|Lansdowne Yonkers FC|Leros SC|NY Athletic Club|NY Greek Americans|NY Pancyprian Freedoms|Richmond County FC|SC Vistula Garfield"],
+  ["Mid-Atlantic Conference - Chesapeake (Maryland)", "Baltimore City FC|Delmarva Thunder|Germantown City FC|Hybrid FC|MoCo 1776|PFA APSL|Project 90 Gambeta|Prospect FC|Real Pelayo FC"],
+  ["Mid-Atlantic Conference - Old Dominion (Virginia)", "Club Petrolero|Grove Soccer United|Nova FC|Summit Valley United|VA Marauders FC"],
+  ["Mitten Conference (Michigan)", "Alianza FC|Drita SC|Grand Rapids SC|Hamtramck City FC|Inter Detroit|Livonia City FC|Monroe United|World Class FC"],
+  ["Terminus Conference (Georgia)", "Alliance SC|Bel Calcio FC|Buckhead SC|Georgia United FC|Majestic SC|MOBA Upper 90|Peachtree FC|Prima FC|Terminus FC"],
+  ["Trinity Conference (Texas)", "AC Arlington FC|Chin Hills FC|DFW Super Eagles|Foro SC|ICE FC/Black Ice|Midcities FC|Texas Rage FC|Union Vale FC"],
+].map(([name, clubs]) => ({ name, clubs: clubs.split("|") })) };
+let SETUP = DEFAULT_SETUP;
 const opt = (v, t) => `<option value="${esc(v)}">${esc(t ?? v)}</option>`;
 function toggleOther(id) { const o = $("#" + id + "Other"); if (o) o.classList.toggle("hidden", $("#" + id).value !== OTHER); }
-$("#division").addEventListener("change", () => toggleOther("division"));
+function fillTeams() {
+  const c = SETUP.conferences.find(x => x.name === $("#division").value);
+  ["home", "away"].forEach(id => {
+    const el = $("#" + id), keep = el.value;
+    el.innerHTML = c
+      ? opt("", id === "home" ? "Select home team" : "Select away team") + c.clubs.map(n => opt(n)).join("") + opt(OTHER, "Other / not in this conference…")
+      : opt("", "Select conference first");
+    if ([...el.options].some(o => o.value === keep)) el.value = keep;
+    toggleOther(id);
+  });
+  $("#home").dispatchEvent(new Event("change"));
+}
+$("#division").addEventListener("change", fillTeams);
+["home", "away"].forEach(id => $("#" + id).addEventListener("change", () => toggleOther(id)));
 function startForm(setup) {
-  const list = setup && setup.conferences && setup.conferences.length ? setup.conferences : DEFAULT_CONFERENCES;
-  $("#division").innerHTML = opt("", "Select conference") + list.map(c => opt(c)).join("") + opt(OTHER, "Other…");
-  loadDraft(); toggleOther("division"); refresh();
+  if (setup && setup.conferences && setup.conferences.length) SETUP = setup;
+  $("#division").innerHTML = opt("", "Select conference") + SETUP.conferences.map(c => opt(c.name)).join("");
+  loadDraft();
+  fillTeams();                     // build team lists for the restored conference…
+  let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
+  if (d && d.f) ["home", "away"].forEach(id => { if (d.f[id] != null) { $("#" + id).value = d.f[id]; toggleOther(id); } });   // …then restore teams
+  $("#home").dispatchEvent(new Event("change"));
+  refresh();
 }
 if (window.google && google.script && google.script.run) {
   google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
