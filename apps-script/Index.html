@@ -72,6 +72,12 @@ button.primary:disabled{opacity:.55;cursor:not-allowed}
 .check input{width:22px;height:22px;min-height:0;flex:none;margin:1px 0 0}
 .check span{font-size:14px}
 .check small{display:block;color:var(--muted);font-size:12px}
+.grp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 0}
+.grp:first-child{margin-top:0}
+.sublist{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:10px 12px;margin:-4px 0 4px 32px;border-left:3px solid var(--line);font-size:14px}
+.sublist label{display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;margin:0}
+.sublist input{width:20px;height:20px;min-height:0;flex:none}
+@media (max-width:560px){.sublist{grid-template-columns:1fr;margin-left:12px}}
 .drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center}
 .drop strong{display:block;font-size:15px}
 .drop .sub{color:var(--muted);font-size:13px;margin:2px 0 10px}
@@ -142,11 +148,38 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
     <div><label for="status">Match status <span class="req">*</span></label>
       <select id="status" required>
         <option value="Completed">Completed</option>
-        <option value="Abandoned">Abandoned</option>
-        <option value="Forfeit – home did not appear">Forfeit – home did not appear</option>
-        <option value="Forfeit – away did not appear">Forfeit – away did not appear</option>
-        <option value="Not played – weather/field">Not played – weather/field</option>
+        <option value="Abandoned">Abandoned (stopped and not finished)</option>
+        <option value="Forfeit">Forfeit</option>
+        <option value="Not played">Not played – weather, lightning or field closed</option>
       </select></div>
+    <div class="full hidden" id="abandonWrap"><div class="grid three">
+      <div><label for="abandonMin">Minute stopped <span class="req">*</span></label><input id="abandonMin" inputmode="numeric" placeholder="e.g. 63"></div>
+      <div><label for="abandonReason">Why <span class="req">*</span></label><select id="abandonReason">
+        <option value="">Select…</option>
+        <option>Weather or lightning</option>
+        <option>Lights or field failure</option>
+        <option>Injury or medical emergency</option>
+        <option>Player, team official or spectator conduct</option>
+        <option>Sent-off player or team official refused to leave</option>
+        <option>Unauthorized people refused to leave the bench (10+ min)</option>
+        <option>Other</option></select></div>
+      <div id="abandonTeamWrap" class="hidden"><label for="abandonTeam">Team responsible <span class="req">*</span></label><select id="abandonTeam">
+        <option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
+      </div><p class="hint" style="margin:6px 0 0">Matches stopped after the 70th minute usually stand as final (Handbook §4.2.6).</p></div>
+    <div class="full hidden" id="forfeitWrap"><div class="grid">
+      <div><label for="forfeitTeam">Forfeiting team <span class="req">*</span></label><select id="forfeitTeam">
+        <option value="">Select…</option><option value="home">Home</option><option value="away">Away</option></select></div>
+      <div><label for="forfeitReason">Reason <span class="req">*</span></label><select id="forfeitReason">
+        <option value="">Select…</option>
+        <option>Did not show up</option>
+        <option>Fewer than 7 players ready 15 minutes after kickoff time</option>
+        <option>Walked off or refused to continue</option>
+        <option>Referee fees not paid before kickoff</option>
+        <option>No field permit or field access</option>
+        <option>Players, coaches or supporters stopped the match</option>
+        <option>Sent-off player or coach refused to leave</option>
+        <option>Other</option></select></div>
+      </div><p class="hint" style="margin:6px 0 0">Forfeit grounds from Handbook §4.2.7. Enter the score at the time play stopped, if any.</p></div>
   </div>
 </section>
 
@@ -182,7 +215,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <!-- 4. DISCIPLINE -->
 <section class="card">
   <h2><span class="n">4</span>Cards and dismissals</h2>
-  <p class="hint">Include coaches and team officials. Any red card needs a supplemental report (step 8).</p>
+  <p class="hint">Include coaches and team officials. For a second yellow, pick the reason for the second caution. Any send-off needs a supplemental report (step 8).</p>
   <div id="cards" class="row-list"></div>
   <button type="button" class="add" data-add="card">+ Add card</button>
 </section>
@@ -200,28 +233,62 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <!-- 6. MATCH CONDUCT -->
 <section class="card">
   <h2><span class="n">6</span>Match day checks</h2>
+  <p class="hint">Based on the APSL Regulations &amp; Club Manual. Section numbers are shown so the office can follow up.</p>
   <div class="grid">
-    <div><label for="physioHome">Home physio / medic</label><input id="physioHome" placeholder="Name, or leave blank if none"></div>
-    <div><label for="physioAway">Away physio / medic</label><input id="physioAway" placeholder="Name, or leave blank if none"></div>
+    <div><label for="physioHome">Physio / medical person <span class="req">*</span></label><input id="physioHome" placeholder="Name – the home team must provide one"></div>
+    <div><label for="physioAway">Away team physio <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="physioAway" placeholder="Name, if they brought one"></div>
     <div><label for="actualKO">Actual kickoff</label><input id="actualKO" type="time"></div>
-    <div><label for="paid">Crew paid by home team at venue? <span class="req">*</span></label>
-      <select id="paid" required><option value="">Select…</option><option>Yes – in full</option><option>Partial</option><option>No</option></select></div>
-    <div class="full hidden" id="paidNoteWrap"><label for="paidNote">Payment details</label><input id="paidNote" placeholder="Amount received, who owes what"></div>
+    <div><label for="paid">Referee fees paid? <span class="req">*</span></label>
+      <select id="paid" required><option value="">Select…</option><option>Yes – in full, before kickoff</option><option>Yes – in full, but after kickoff</option><option>Partially paid</option><option>Not paid</option></select></div>
+    <div class="full hidden" id="paidNoteWrap"><label for="paidNote">Payment details</label><input id="paidNote" placeholder="Amount received, who still owes what"></div>
   </div>
-  <p class="hint" style="margin:14px 0 8px">Check anything that happened:</p>
+
+  <p class="hint" style="margin:16px 0 8px"><strong>Tick anything that happened.</strong> Items marked <span class="pill">describe below</span> need a sentence in the notes box.</p>
   <div class="checks">
-    <label class="check"><input type="checkbox" id="c_lateHome"><span>Home team arrived late<small>Not ready within 30 min of scheduled time</small></span></label>
-    <label class="check"><input type="checkbox" id="c_lateAway"><span>Away team arrived late<small>Not ready within 30 min of scheduled time</small></span></label>
-    <label class="check"><input type="checkbox" id="c_noPhysio"><span>A team had no physio / medic</span></label>
-    <label class="check"><input type="checkbox" id="c_roster"><span>Roster issue<small>Roster sheet not provided to you or the opponent, ID check failed, unlisted player, more than 20 dressed</small></span></label>
-    <label class="check"><input type="checkbox" id="c_bench"><span>Bench area issue<small>More than 9 subs or 5 officials near the bench</small></span></label>
+    <div class="grp">Kickoff &amp; arrival</div>
+    <label class="check"><input type="checkbox" id="c_lateHome"><span>Home team delayed kickoff<small>Not ready with at least 7 players at kickoff time. More than 15 minutes late is grounds for a forfeit (§4.2.7)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_lateAway"><span>Away team delayed kickoff<small>Same rule as above (§4.2.7)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_walkout"><span>No pre-match walkout<small>Both teams and referees line up at center field (§4.2.1)</small></span></label>
+
+    <div class="grp">Home ground &amp; match day standards</div>
+    <label class="check"><input type="checkbox" id="c_noPhysio"><span>Home team had no physio / medical person<small>Home team must have a physio and medical kit at every match (§4.2.1, §8.3.2)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_ground"><span>Field or match day standards not met<small>Tick what applied (§4.1, §4.2.1, §8.3.3)</small></span></label>
+    <div id="groundList" class="sublist hidden">
+      <label><input type="checkbox" id="gr_1" data-ground="Field not properly marked"> Field not properly marked</label>
+      <label><input type="checkbox" id="gr_2" data-ground="Goal nets missing or not secured"> Goal nets missing or not secured</label>
+      <label><input type="checkbox" id="gr_3" data-ground="Fewer than 6 match balls"> Fewer than 6 match balls</label>
+      <label><input type="checkbox" id="gr_4" data-ground="Corner flags missing"> Corner flags missing</label>
+      <label><input type="checkbox" id="gr_5" data-ground="No team benches"> No team benches</label>
+      <label><input type="checkbox" id="gr_6" data-ground="No referee table and chair"> No referee table and chair</label>
+      <label><input type="checkbox" id="gr_7" data-ground="No water for referees"> No water for referees</label>
+      <label><input type="checkbox" id="gr_8" data-ground="Technical areas not marked"> Technical areas not marked</label>
+      <label><input type="checkbox" id="gr_9" data-ground="Field not enclosed from spectators"> Field not enclosed from spectators</label>
+      <label><input type="checkbox" id="gr_10" data-ground="Field smaller than 110 x 65 yards"> Field smaller than 110 × 65 yards</label>
+      <label><input type="checkbox" id="gr_11" data-ground="Amplified music interfered with the match"> Amplified music interfered with the match</label>
+    </div>
+
+    <div class="grp">Rosters &amp; eligibility</div>
+    <label class="check"><input type="checkbox" id="c_roster"><span>Roster form problem<small>Not given to you before kickoff (allowed until halftime) or no copy to the opponent, unclear photos, not the league's printed form, or printed more than 48 hours before the match (§4.2.2)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_eligibility"><span>Possible ineligible player <span class="pill">describe below</span><small>Played but not on the roster form, ID didn't match the photo, arrived after the second half started, or more than 20 dressed (§4.2.2, §4.2.4, §8.3.4)</small></span></label>
+
+    <div class="grp">Teams &amp; benches</div>
+    <label class="check"><input type="checkbox" id="c_kit"><span>Uniform problem<small>Kit clash (visitors must change), mismatched kits, no captain's armband, or no APSL sleeve logo (§4.2.3)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_bibs"><span>Substitutes without bibs, or no sub cards used<small>Subs must wear bibs on the bench, warming up, and after coming off (§4.2.4, §4.2.5)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_bench"><span>Unauthorized people at the bench or on the field <span class="pill">describe below</span><small>Only rostered players, coaches/managers and the team physio; staff stand only in the technical area (§4.1)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_noCoach"><span>A team had no coach present<small>Each team needs a licensed coach at the match (§4.2.1)</small></span></label>
+
+    <div class="grp">Conduct &amp; safety</div>
     <label class="check"><input type="checkbox" id="c_injury"><span>Serious injury <span class="pill">needs supplemental</span></span></label>
-    <label class="check"><input type="checkbox" id="c_spectator"><span>Abusive or disruptive spectators / non-players</span></label>
-    <label class="check"><input type="checkbox" id="c_refAbuse"><span>Referee abuse or assault <span class="pill">needs supplemental</span><small>Also goes to the State President and State Referee Administrator</small></span></label>
-    <label class="check"><input type="checkbox" id="c_walkout"><span>No pre-match walkout</span></label>
+    <label class="check"><input type="checkbox" id="c_refusedLeave"><span>Sent-off player or team official refused to leave, or came back <span class="pill">needs supplemental</span><small>(§4.2.6, §4.2.7)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_spectator"><span>Abusive or disruptive spectators / non-players <span class="pill">describe below</span><small>Including supporters who delayed or stopped play (§4.2.7, §8.3.5)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_discrim"><span>Discriminatory language or conduct <span class="pill">needs supplemental</span><small>By anyone – player, staff or spectator (§8.2)</small></span></label>
+    <label class="check"><input type="checkbox" id="c_refAbuse"><span>Referee abuse or assault <span class="pill">needs supplemental</span><small>Also send to the State President and State Referee Administrator (§8.1.2)</small></span></label>
+
+    <div class="grp">Protests</div>
+    <label class="check"><input type="checkbox" id="c_protest"><span>A team told me it is protesting the match <span class="pill">describe below</span><small>Note which team, when (at the roster check or after the final whistle), and the grounds they gave (§8.6)</small></span></label>
   </div>
-  <div style="margin-top:12px"><label for="notes">Anything else the league should know</label>
-    <textarea id="notes" placeholder="Field conditions, kit clash, delays, etc."></textarea></div>
+  <div style="margin-top:12px"><label for="notes">Notes for the league</label>
+    <textarea id="notes" placeholder="Describe anything ticked above, plus field conditions, delays, etc."></textarea></div>
 </section>
 
 <!-- 7. UPLOADS -->
@@ -247,7 +314,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <!-- 8. SUPPLEMENTAL -->
 <section class="card" id="suppCard">
   <h2><span class="n">8</span>Supplemental report <span id="suppReq" class="pill hidden">required</span></h2>
-  <p class="hint" id="suppHint">Required for any red card, dismissal of a team official, serious injury, abandonment, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.</p>
+  <p class="hint" id="suppHint">Required for any send-off (players and team officials), serious injury, abandoned match, forfeit caused by conduct, discriminatory conduct, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.</p>
   <p style="margin:0 0 12px"><button type="button" id="getTemplate" style="width:100%">⬇ Download blank supplemental form (PDF)</button></p>
   <div id="templateMsg"></div>
   <div class="drop">
@@ -294,7 +361,7 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-ref-draft-v5";
+const DRAFT_KEY = "apsl-ref-draft-v6";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
 
@@ -317,12 +384,7 @@ const TEMPLATES = {
     <div><label>#</label><input class="k-num" inputmode="numeric" placeholder="or Coach"></div>
     <div><label>Name</label><input class="k-name"></div>
     <div><label>Card</label><select class="k-type"><option>Yellow</option><option>Second yellow (red)</option><option>Red</option></select></div>
-    <div><label>Reason</label><select class="k-reason">
-      <option>Unsporting behavior</option><option>Dissent</option><option>Persistent infringement</option>
-      <option>Delaying restart</option><option>Failure to respect distance</option><option>Entering/leaving without permission</option>
-      <option>Serious foul play</option><option>Violent conduct</option><option>Spitting</option>
-      <option>Denying obvious goal-scoring opportunity</option><option>Offensive, insulting or abusive language</option>
-      <option>Team official misconduct</option><option>Other</option></select></div>
+    <div><label>Reason</label><select class="k-reason">${reasonOptions("Yellow")}</select></div>
     <div><label>Min <span class="req">*</span></label><input class="k-min" inputmode="numeric"></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`,
   sub: () => `
@@ -336,12 +398,34 @@ const TEMPLATES = {
     <button type="button" class="x" aria-label="Remove">✕</button>`
 };
 const LISTS = { goal: "#goals", card: "#cards", sub: "#subs" };
+// Cautions: IFAB Law 12. Send-offs: APSL Handbook §8.1.2 categories (they set the suspension length).
+const YELLOW_REASONS = ["Unsporting behavior", "Dissent by word or action", "Persistent offenses", "Delaying the restart of play",
+  "Not respecting the distance at a restart", "Entering or re-entering without permission", "Leaving the field without permission"];
+const RED_REASONS = ["Denying a goal or obvious goal-scoring opportunity", "Serious foul play", "Violent conduct",
+  "Assault on an opponent or other person (hit, kick, elbow, bite, spit)", "Offensive, insulting or abusive language or gestures",
+  "Discriminatory language or conduct", "Provoking spectators", "Unsporting behavior toward an opponent or other person",
+  "Dissent by word or action (team official)", "Deceiving a match official", "Unsporting behavior toward a match official",
+  "Intimidating or threatening a match official", "Assault on a match official", "Other – see supplemental"];
+const REF_ABUSE = ["Unsporting behavior toward a match official", "Intimidating or threatening a match official", "Assault on a match official"];
+const CONDUCT_ABANDON = ["Player, team official or spectator conduct", "Sent-off player or team official refused to leave", "Unauthorized people refused to leave the bench (10+ min)"];
+const CONDUCT_FORFEIT = ["Walked off or refused to continue", "Players, coaches or supporters stopped the match", "Sent-off player or coach refused to leave"];
+function reasonOptions(type) {
+  const list = type === "Yellow" ? YELLOW_REASONS : type === "Second yellow (red)" ? YELLOW_REASONS.map(r => r) : RED_REASONS;
+  return list.map(r => `<option>${r}</option>`).join("");
+}
+function syncReasons(row, keep) {
+  const sel = row.querySelector(".k-reason"), t = row.querySelector(".k-type").value, prev = keep ?? sel.value;
+  sel.innerHTML = reasonOptions(t);
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+document.addEventListener("change", e => { if (e.target.matches(".k-type")) syncReasons(e.target.closest(".row")); });
 
 function addRow(kind, data) {
   const div = document.createElement("div");
   div.className = "row " + kind;
   div.innerHTML = TEMPLATES[kind]();
   if (data) div.querySelectorAll("input,select").forEach(el => { const k = el.className; if (data[k] != null) el.value = data[k]; });
+  if (kind === "card") syncReasons(div, data && data["k-reason"]);
   $(LISTS[kind]).appendChild(div);
   return div;
 }
@@ -434,13 +518,35 @@ function validate() {
   const bad = (id, msg) => { document.getElementById(id)?.classList.add("invalid"); errors.push(msg); };
 
   const required = { division: "Conference", gameDate: "Game date", kickoff: "Scheduled kickoff",
-    home: "Home team", away: "Away team", refName: "Your name", refPhone: "Phone", refEmail: "Email", paid: "Payment status" };
+    home: "Home team", away: "Away team", refName: "Your name", refPhone: "Phone", refEmail: "Email", paid: "Referee fee status" };
   for (const [id, label] of Object.entries(required)) if (!val(id)) { bad(id, `${label} is missing`); document.getElementById(id + "Other")?.classList.add("invalid"); }
   if (val("refEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("refEmail"))) bad("refEmail", "Email looks invalid");
   if (val("home") && val("home").toLowerCase() === val("away").toLowerCase()) bad("away", "Home and away team are the same");
   if (val("refId") && val("refId").replace(/\D/g, "").length < 8) warns.push("USSF ID looks short – double-check it, or leave it blank");
 
   const played = val("status") === "Completed" || val("status") === "Abandoned";
+  if (val("status") === "Abandoned") {
+    if (!minuteOk(val("abandonMin"))) bad("abandonMin", "Enter the minute the match was stopped");
+    if (!val("abandonReason")) bad("abandonReason", "Pick why the match was abandoned");
+    if (CONDUCT_ABANDON.includes(val("abandonReason")) && !val("abandonTeam")) bad("abandonTeam", "Pick which team was responsible for the abandonment");
+  }
+  if (val("status") === "Forfeit") {
+    if (!val("forfeitTeam")) bad("forfeitTeam", "Pick the forfeiting team");
+    if (!val("forfeitReason")) bad("forfeitReason", "Pick the forfeit reason");
+  }
+  // kickoff more than 15 minutes late (§4.2.7)
+  if (val("kickoff") && val("actualKO") && val("status") === "Completed") {
+    const [h1, m1] = val("kickoff").split(":").map(Number), [h2, m2] = val("actualKO").split(":").map(Number);
+    const late = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (late > 15 && !chk("c_lateHome") && !chk("c_lateAway") && !val("notes")) warns.push(`Kickoff was ${late} minutes late – tick which team delayed it, or explain in the notes (more than 15 minutes is grounds for a forfeit, §4.2.7)`);
+  }
+  // fees (§3.1.4)
+  if (val("paid") && !val("paid").startsWith("Yes – in full, before") && !val("paidNote")) bad("paidNote", "Add payment details – unpaid or late referee fees can lead to a forfeit (§3.1.4)");
+  // items that need a description
+  const needNotes = [["c_eligibility", "possible ineligible player"], ["c_bench", "unauthorized people at the bench"], ["c_spectator", "spectator conduct"], ["c_protest", "the protest"]]
+    .filter(([id]) => chk(id)).map(([, t]) => t);
+  if (needNotes.length && val("notes").length < 15) bad("notes", "Describe " + needNotes.join(", ") + " in the notes box");
+  if (chk("c_ground") && !$$("[data-ground]:checked").length) errors.push("Tick which field or match day standards were not met");
   if (played) {
     if (val("homeScore") === "") bad("homeScore", "Home score is missing");
     if (val("awayScore") === "") bad("awayScore", "Away score is missing");
@@ -507,9 +613,10 @@ function validate() {
   subMsgs.forEach(m => warns.push(m));
 
   // uploads
-  const notPlayed = val("status").startsWith("Not played");
-  if (!notPlayed && !val("status").includes("home did not") && !files.home.length) errors.push("Home roster sheet photo is missing");
-  if (!notPlayed && !val("status").includes("away did not") && !files.away.length) errors.push("Away roster sheet photo is missing");
+  const notPlayed = val("status") === "Not played";
+  const noShow = val("status") === "Forfeit" ? val("forfeitTeam") : "";      // the forfeiting team may have no roster to photograph
+  if (!notPlayed && noShow !== "home" && !files.home.length) errors.push("Home roster sheet photo is missing");
+  if (!notPlayed && noShow !== "away" && !files.away.length) errors.push("Away roster sheet photo is missing");
   const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
   if (tb > cap) errors.push(`Attachments total ${mb(tb)} – remove something to get under ${CONFIG.totalUploadMB} MB`);
 
@@ -519,7 +626,8 @@ function validate() {
   if (reasons.length && !hasSupp) { bad("suppText", "Supplemental report needed for: " + reasons.join(", ")); }
 
   // physio consistency
-  if (!chk("c_noPhysio") && (!val("physioHome") || !val("physioAway")) && played) warns.push("A physio name is blank – enter it, or tick “A team had no physio”");
+  if (played && !val("physioHome") && !chk("c_noPhysio")) bad("physioHome", "Enter the physio's name, or tick “Home team had no physio”");
+  if (val("physioHome") && chk("c_noPhysio")) warns.push("You entered a physio name but also ticked “Home team had no physio”");
 
   if (!chk("attest")) errors.push("Tick the confirmation box");
   return { errors, warns, reasons };
@@ -527,11 +635,21 @@ function validate() {
 function suppReasons(cards = rows("card")) {
   const r = [];
   const reds = cards.filter(isRed);
-  if (reds.length) r.push(`${reds.length} red card${reds.length > 1 ? "s" : ""}`);
+  if (reds.length) r.push(`${reds.length} send-off${reds.length > 1 ? "s" : ""}`);
   if (chk("c_injury")) r.push("serious injury");
   if (val("status") === "Abandoned") r.push("abandoned match");
-  if (chk("c_refAbuse")) r.push("referee abuse");
+  if (val("status") === "Forfeit" && CONDUCT_FORFEIT.includes(val("forfeitReason"))) r.push("forfeit for conduct");
+  if (chk("c_refusedLeave")) r.push("sent-off person refused to leave");
+  if (chk("c_discrim") || reds.some(c => c["k-reason"] === "Discriminatory language or conduct")) r.push("discriminatory conduct");
+  if (chk("c_refAbuse") || reds.some(c => REF_ABUSE.includes(c["k-reason"]))) r.push("referee abuse");
   return r;
+}
+function statusText() {
+  const st = val("status");
+  if (st === "Abandoned") return `Abandoned in minute ${val("abandonMin") || "?"} – ${val("abandonReason") || "reason not given"}` +
+    (CONDUCT_ABANDON.includes(val("abandonReason")) && val("abandonTeam") ? ` (responsible: ${val("abandonTeam") === "both" ? "both teams" : teamName(val("abandonTeam"))})` : "");
+  if (st === "Forfeit") return `Forfeit by ${val("forfeitTeam") ? teamName(val("forfeitTeam")) : "?"} – ${val("forfeitReason") || "reason not given"}`;
+  return st;
 }
 
 /* ---------- report text ---------- */
@@ -540,7 +658,7 @@ function buildReport() {
   const line = (k, v) => v && L.push(`${k}: ${v}`);
   L.push(`APSL REFEREE MATCH REPORT`, ``);
   line("Date", val("gameDate")); line("Scheduled KO", val("kickoff")); line("Actual KO", val("actualKO"));
-  line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", val("status"));
+  line("Division", val("division")); line("Type", val("matchType")); line("Venue", val("venue")); line("Status", statusText());
   L.push(``, `RESULT: ${H} ${val("homeScore") || "-"} – ${val("awayScore") || "-"} ${A}`);
   const goals = rows("goal").sort((a, b) => minuteNum(a["g-min"] || "0") - minuteNum(b["g-min"] || "0"));
   if (goals.length) { L.push(``, `GOALS`); goals.forEach(g => L.push(`  ${g["g-min"]}'  ${teamName(g["g-team"])}  #${g["g-num"]} ${g["g-name"]}${g["g-type"] === "Penalty" ? " (pen)" : g["g-type"] === "Own goal" ? " (OG – " + teamName(g["g-team"] === "home" ? "away" : "home") + " player)" : ""}`)); }
@@ -552,13 +670,18 @@ function buildReport() {
   L.push(``, `CREW`);
   line("Submitted by", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")} · ${val("refEmail")}`);
   line("AR1", val("ar1")); line("AR2", val("ar2")); line("4th", val("fourth"));
-  line("Paid at venue", val("paid") + (val("paidNote") ? " – " + val("paidNote") : ""));
+  line("Referee fees", val("paid") + (val("paidNote") ? " – " + val("paidNote") : ""));
   L.push(``, `MATCH DAY`);
-  line(`Physio (${H})`, val("physioHome") || "none listed"); line(`Physio (${A})`, val("physioAway") || "none listed");
-  const flags = [["c_lateHome", `${H} late (30+ min)`], ["c_lateAway", `${A} late (30+ min)`], ["c_noPhysio", "Team without physio"],
-    ["c_roster", "Roster issue"], ["c_bench", "Bench area issue"], ["c_injury", "Serious injury"], ["c_spectator", "Spectator/non-player misconduct"],
-    ["c_refAbuse", "REFEREE ABUSE/ASSAULT"], ["c_walkout", "No walkout"]].filter(([id]) => chk(id)).map(([, t]) => t);
-  L.push(`  Flags: ${flags.length ? flags.join("; ") : "none"}`);
+  line(`Physio (home)`, val("physioHome") || "NONE"); line(`Physio (away)`, val("physioAway"));
+  const ground = $$("[data-ground]:checked").map(x => x.dataset.ground);
+  const flags = [["c_lateHome", `${H} delayed kickoff (§4.2.7)`], ["c_lateAway", `${A} delayed kickoff (§4.2.7)`], ["c_walkout", "No walkout (§4.2.1)"],
+    ["c_noPhysio", "HOME TEAM HAD NO PHYSIO (§8.3.2)"], ["c_ground", `Ground/match day standards not met: ${ground.join(", ")} (§8.3.3)`],
+    ["c_roster", "Roster form problem (§4.2.2)"], ["c_eligibility", "POSSIBLE INELIGIBLE PLAYER (§8.3.4)"],
+    ["c_kit", "Uniform problem (§4.2.3)"], ["c_bibs", "Subs without bibs / no sub cards (§4.2.5)"], ["c_bench", "Unauthorized people at bench/field (§4.1)"],
+    ["c_noCoach", "Team without a coach (§4.2.1)"], ["c_injury", "Serious injury"], ["c_refusedLeave", "SENT-OFF PERSON REFUSED TO LEAVE"],
+    ["c_spectator", "Spectator/non-player misconduct (§8.3.5)"], ["c_discrim", "DISCRIMINATORY CONDUCT (§8.2)"],
+    ["c_refAbuse", "REFEREE ABUSE/ASSAULT"], ["c_protest", "PROTEST LODGED (§8.6)"]].filter(([id]) => chk(id)).map(([, t]) => t);
+  L.push(`  Flags: ${flags.length ? "" : "none"}`); flags.forEach(f => L.push(`   • ${f}`));
   if (val("notes")) L.push(``, `NOTES`, val("notes"));
   if (val("suppText")) L.push(``, `SUPPLEMENTAL STATEMENT`, val("suppText"));
   const att = [["Home roster", files.home], ["Away roster", files.away], ["Supplemental", files.supp]].filter(([, a]) => a.length)
@@ -574,12 +697,16 @@ function refresh() {
   $("#budgetText").textContent = `${mb(tb)} of ${CONFIG.totalUploadMB} MB used`;
   $("#budgetBar").style.width = Math.min(100, tb / cap * 100) + "%";
   $("#budgetBar").style.background = tb > cap ? "var(--accent)" : "var(--ok)";
-  $("#paidNoteWrap").classList.toggle("hidden", !val("paid") || val("paid").startsWith("Yes"));
+  $("#paidNoteWrap").classList.toggle("hidden", !val("paid") || val("paid").startsWith("Yes – in full, before"));
+  $("#groundList").classList.toggle("hidden", !chk("c_ground"));
+  $("#abandonWrap").classList.toggle("hidden", val("status") !== "Abandoned");
+  $("#forfeitWrap").classList.toggle("hidden", val("status") !== "Forfeit");
+  $("#abandonTeamWrap").classList.toggle("hidden", !CONDUCT_ABANDON.includes(val("abandonReason")));
   const reasons = suppReasons();
   $("#suppReq").classList.toggle("hidden", !reasons.length);
   $("#suppHint").innerHTML = reasons.length
     ? `<strong style="color:var(--accent)">Required because of: ${esc(reasons.join(", "))}.</strong> Upload a completed USSF Supplemental Referee Report, or write the statement here.`
-    : "Required for any red card, dismissal of a team official, serious injury, abandonment, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.";
+    : "Required for any send-off (players and team officials), serious injury, abandoned match, forfeit caused by conduct, discriminatory conduct, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.";
   $("#preview").textContent = buildReport();
   clearTimeout(saveT); saveT = setTimeout(saveDraft, 400);
 }
@@ -693,7 +820,8 @@ async function send(warns) {
       out.push({ name: `${val("gameDate")}_${label[slot]}_${i + 1}${ext}`, type: p.file.type, data: await readB64(p.file) });
     }
     const fields = {};
-    ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","status","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
+    ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
+    fields.status = statusText();
     const payload = { fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
     let j;
     if (window.google && google.script && google.script.run) {        // served by Apps Script
