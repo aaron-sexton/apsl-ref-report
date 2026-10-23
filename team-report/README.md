@@ -30,7 +30,8 @@ on days with no new reports.
 - **Each conference commissioner** (column D of the Assignors tab) – one email with their conference's scores,
   **goals & assists**, and the **issues**:
   - any **No** answer (with the club's note)
-  - a **score mismatch** between the referee's report and either club
+  - a **score mismatch** – any two of the referee's report and the two clubs' latest reports give different
+    scores (a source that hasn't reported yet is ignored; the referee's score is shown as the result when there is one)
   - the two clubs **disagreeing** on a check ("Unsure" never counts)
   - any **written comment**
 - A conference with **no commissioner email** has its issues added to the office digest, so nothing is lost.

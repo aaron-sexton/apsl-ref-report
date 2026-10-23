@@ -269,7 +269,7 @@ function niceDate(iso) {
   return y ? Utilities.formatDate(new Date(y, mo - 1, d), Session.getScriptTimeZone(), 'EEE MMM d') : String(iso);
 }
 function scoreLine(m) {
-  const sc = m.score === '?' ? 'score not reported' : m.score === 'not played' ? 'not played' : m.score.replace('-', ' – ');
+  const sc = m.score === '?' ? (m.mismatch ? 'scores differ – see below' : 'score not reported') : m.score === 'not played' ? 'not played' : m.score.replace('-', ' – ');
   return `${m.home} ${m.score === '?' || m.score === 'not played' ? 'v' : sc} ${m.away}${m.score === '?' || m.score === 'not played' ? ' – ' + sc : ''}`;
 }
 function digestText(ms, detail, issuesOnly) {
