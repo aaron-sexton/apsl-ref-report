@@ -1,7 +1,7 @@
 APSL Referee Match Report – adding it to the APSL website
 
 Form link (permanent – this link does not change when the form is updated):
-  PASTE_WEB_APP_LINK_HERE
+  https://tinyurl.com/apsl-ref-report
 
 Please add it in one of these two ways (option A is preferred):
 
@@ -13,7 +13,7 @@ A) A button or menu link
 B) Embedded on a page
    Paste this into an HTML / embed block:
 
-   <iframe src="PASTE_WEB_APP_LINK_HERE"
+   <iframe src="https://tinyurl.com/apsl-ref-report"
            title="APSL Referee Match Report"
            style="width:100%;height:90vh;min-height:700px;border:0"
            loading="lazy"></iframe>
