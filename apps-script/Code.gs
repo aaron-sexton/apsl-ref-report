@@ -31,8 +31,7 @@ function doGet() {
 // after that, edit the Clubs tab (not this list) when clubs join or leave.
 const DEFAULT_CLUBS = {
   'Constitution Conference (Connecticut)': ['Caribbean FCA', 'Glastonbury Celtic', 'Hermandad Connecticut', 'KO Elites', 'Southwest FC', 'United Holyoke FC'],
-  'Delaware River Conference (Pennsylvania & New Jersey) - Group A': ['Colonial SC', 'Jersey Shore Boca', 'Medford Strikers', 'Philadelphia Heritage SC', 'Philadelphia Soccer Club', 'Sewell Old Boys FC', 'WC Predators', 'Westtown FC'],
-  'Delaware River Conference (Pennsylvania & New Jersey) - Group B': ['Feelsgood FC', 'Lighthouse 1893 SC', 'Oaklyn United FC', 'Persepolis United FC', 'Philadelphia Ukrainian Nationals', 'Real Central NJ Soccer', 'Vereinigung Erzgebirge Majors', 'Vidas United FC'],
+  'Delaware River Conference (Pennsylvania & New Jersey)': ['Colonial SC', 'Feelsgood FC', 'Jersey Shore Boca', 'Lighthouse 1893 SC', 'Medford Strikers', 'Oaklyn United FC', 'Persepolis United FC', 'Philadelphia Heritage SC', 'Philadelphia Soccer Club', 'Philadelphia Ukrainian Nationals', 'Real Central NJ Soccer', 'Sewell Old Boys FC', 'Vereinigung Erzgebirge Majors', 'Vidas United FC', 'WC Predators', 'Westtown FC'],
   'Mayflower Conference (Massachusetts)': ['Dorchester City FC', 'Falcons FC', 'Jaguars United FC', 'New England Combine FC', 'Praia Kapital', 'Scrub Nation', 'Soley Leve', 'Somerville United FC', 'South Coast Union', 'Strictly Nos FC'],
   'Metropolitan Conference (New York & New Jersey)': ['Central Park Rangers FC', 'Doxa SC', 'FC Sandzak', 'Hoboken FC 1912', 'Lansdowne Yonkers FC', 'Leros SC', 'NY Athletic Club', 'NY Greek Americans', 'NY Pancyprian Freedoms', 'Richmond County FC', 'SC Vistula Garfield'],
   'Mid-Atlantic Conference - Chesapeake (Maryland)': ['Baltimore City FC', 'Delmarva Thunder', 'Germantown City FC', 'Hybrid FC', 'MoCo 1776', 'PFA APSL', 'Project 90 Gambeta', 'Prospect FC', 'Real Pelayo FC'],
@@ -190,7 +189,7 @@ function assignorsFor(conference, home) {
     // contains the other (so a ref typing "Hoboken" still matches "Hoboken FC 1912").
     const matches = t => t === h || (h.length >= 4 && t.length >= 4 && (t.includes(h) || h.includes(t)));
     // A row's conference applies if it is the report's conference or the start of it, so one row for
-    // "Delaware River Conference" covers both Group A and Group B. The most specific conference row wins.
+    // "Mid-Atlantic Conference" covers both Chesapeake and Old Dominion. The most specific conference row wins.
     const k = key(conference);
     const mine = rows.filter(r => key(r[0]) && k.startsWith(key(r[0])));
     const team = mine.filter(r => teamsIn(r[1]).some(matches));

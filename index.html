@@ -292,7 +292,7 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-ref-draft-v4";
+const DRAFT_KEY = "apsl-ref-draft-v5";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
 
@@ -604,8 +604,7 @@ function loadDraft() {
 // Fallback only – used if the page can't reach the settings sheet. Keep in step with DEFAULT_CLUBS in Code.gs.
 const DEFAULT_SETUP = { conferences: [
   ["Constitution Conference (Connecticut)", "Caribbean FCA|Glastonbury Celtic|Hermandad Connecticut|KO Elites|Southwest FC|United Holyoke FC"],
-  ["Delaware River Conference (Pennsylvania & New Jersey) - Group A", "Colonial SC|Jersey Shore Boca|Medford Strikers|Philadelphia Heritage SC|Philadelphia Soccer Club|Sewell Old Boys FC|WC Predators|Westtown FC"],
-  ["Delaware River Conference (Pennsylvania & New Jersey) - Group B", "Feelsgood FC|Lighthouse 1893 SC|Oaklyn United FC|Persepolis United FC|Philadelphia Ukrainian Nationals|Real Central NJ Soccer|Vereinigung Erzgebirge Majors|Vidas United FC"],
+  ["Delaware River Conference (Pennsylvania & New Jersey)", "Colonial SC|Feelsgood FC|Jersey Shore Boca|Lighthouse 1893 SC|Medford Strikers|Oaklyn United FC|Persepolis United FC|Philadelphia Heritage SC|Philadelphia Soccer Club|Philadelphia Ukrainian Nationals|Real Central NJ Soccer|Sewell Old Boys FC|Vereinigung Erzgebirge Majors|Vidas United FC|WC Predators|Westtown FC"],
   ["Mayflower Conference (Massachusetts)", "Dorchester City FC|Falcons FC|Jaguars United FC|New England Combine FC|Praia Kapital|Scrub Nation|Soley Leve|Somerville United FC|South Coast Union|Strictly Nos FC"],
   ["Metropolitan Conference (New York & New Jersey)", "Central Park Rangers FC|Doxa SC|FC Sandzak|Hoboken FC 1912|Lansdowne Yonkers FC|Leros SC|NY Athletic Club|NY Greek Americans|NY Pancyprian Freedoms|Richmond County FC|SC Vistula Garfield"],
   ["Mid-Atlantic Conference - Chesapeake (Maryland)", "Baltimore City FC|Delmarva Thunder|Germantown City FC|Hybrid FC|MoCo 1776|PFA APSL|Project 90 Gambeta|Prospect FC|Real Pelayo FC"],
