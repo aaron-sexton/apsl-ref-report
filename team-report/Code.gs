@@ -4,12 +4,16 @@
  * A short compliance check each club files after a match – the same questions as the conference
  * "APSL Post Match Report" Google Form, with dropdowns for clubs, a validated date and fixed answers.
  *
- * Each submission:
- *   1. Adds a row to the "Club Post-Match Reports" sheet (same column order as the old form's responses)
- *   2. Compares it with the other club's report for the same match (checks + final score) and with the
- *      referee's report in the Referee Reports Log (final score), and notes any disagreements
- *   3. Emails the league office, copying the conference commissioner (not the referee assignor)
- *   4. Emails the submitter a copy
+ * Each submission adds a row to the "Club Post-Match Reports" sheet (same column order as the old form's
+ * responses) and emails the submitter a copy. Nothing goes to the office or commissioners right away.
+ *
+ * Every morning (DIGEST_HOUR, script time zone) sendDailyDigest() looks at the reports received since the
+ * last digest and sends at most one email per person:
+ *   • League office – the final score of each match, grouped by conference
+ *   • Each conference commissioner – their matches' scores and goals, plus the issues: any "No" answer,
+ *     a score mismatch (vs the referee's report and the other club), the two clubs disagreeing on a check,
+ *     and any written comment. Issues for a conference with no commissioner set go to the office instead.
+ * Cross-checks run at digest time, so a referee or club report that arrives later is still compared.
  *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
@@ -25,6 +29,7 @@ const CONFIG = {
   SETTINGS_SHEET_ID: '',
   // The referee system's "Referee Reports Log" – used to cross-check the final score. Leave '' to skip.
   REF_LOG_SHEET_ID: '1mPYPz7ed7K1qHDAjkNWe4mDNpLeT1cVOBH3eAs1el34',
+  DIGEST_HOUR: 8,                            // daily digest time (0–23) in the project's time zone (Project Settings)
 };
 
 // Question keys and labels – must match CHECKS in Index.html. The label is the log's column header.
@@ -84,25 +89,10 @@ function submitClubReport(payloadJson) {
       const ans = k => a[k] + (a[k] === 'No' && notes[k] ? ` – ${notes[k]}` : '');
       logRow([new Date(), d.email, d.division, d.gameDate, d.club, d.opponent, ...CHECKS.map(([k]) => ans(k)),
         d.comments || '', 'I agree', d.side === 'home' ? 'Home' : 'Away', d.name, check.summary,
-        d.status || 'Completed', d.homeScore, d.awayScore, goalsText(d.goals)]);
+        d.status || 'Completed', d.homeScore, d.awayScore, goalsText(d.goals), '']);
     } finally { lock.releaseLock(); }
 
-    const nos = CHECKS.filter(([k]) => a[k] === 'No').map(([k]) => shortLabel(k));
-    const tags = [check.scoreMismatch ? 'SCORE MISMATCH' : '', nos.length ? `No: ${nos.join(', ')}` : '', check.disagree ? 'CLUBS DISAGREE' : ''].filter(Boolean);
-    const result = d.homeScore !== '' && d.homeScore != null ? ` ${d.homeScore}-${d.awayScore} ` : ' v ';
-    const subject = `Club Report – ${d.club} – ${d.home}${result}${d.away} (${d.gameDate})` + (tags.length ? ` [${tags.join('] [')}]` : '');
-    const html =
-      (check.lines.length ? `<div style="border:1px solid ${check.disagree ? '#ec0332' : '#d0d7e5'};background:${check.disagree ? '#fde6eb' : '#f3f6fb'};padding:10px 12px;border-radius:8px;margin:0 0 12px">` +
-        `<b>${check.disagree ? 'Reports disagree – please review' : 'Cross-check'}</b><br>${check.lines.map(escapeHtml).join('<br>')}</div>` : '') +
-      (d.warnings ? `<p style="background:#fff6db;padding:8px;border-radius:6px"><b>Validator notes:</b> ${escapeHtml(d.warnings)}</p>` : '') +
-      `<pre style="font:13px/1.45 Menlo,Consolas,monospace;white-space:pre-wrap">${escapeHtml(d.report)}</pre>`;
-    const mail = { to: CONFIG.OFFICE_EMAIL, subject, htmlBody: html, name: 'APSL Club Reports',
-      body: (check.lines.length ? check.lines.join('\n') + '\n\n' : '') + d.report };
-    if (isEmail(d.email)) mail.replyTo = d.email;
-    const cc = [CONFIG.CC, commissionersFor(d.division, d.home)].filter(Boolean).join(',');
-    if (cc) mail.cc = cc;
-    MailApp.sendEmail(mail);
-
+    // The office and commissioners hear about this in the next morning's digest (sendDailyDigest).
     if (isEmail(d.email)) MailApp.sendEmail({
       to: d.email, name: 'APSL Club Reports',
       subject: `Received: ${d.club} post-match report – ${d.home} v ${d.away} (${d.gameDate})`,
@@ -117,7 +107,8 @@ function submitClubReport(payloadJson) {
 
 /* ---------------- compare with the other club and the referee ---------------- */
 // Log columns: 0 Timestamp | 1 Email | 2 Conference | 3 Date | 4 Club | 5 Opponent | 6-15 answers | 16 Comments |
-//              17 Verification | 18 Home/Away | 19 Name | 20 Cross-check | 21 Status | 22 Home score | 23 Away score | 24 Goals
+//              17 Verification | 18 Home/Away | 19 Name | 20 Cross-check | 21 Status | 22 Home score | 23 Away score | 24 Goals |
+//              25 Included in digest
 function compareWithOtherClub(d) {
   const rows = getLog().getSheets()[0].getDataRange().getValues().slice(1);
   const other = rows.filter(r => isoDay(r[3]) === isoDay(d.gameDate) && sameTeam(r[4], d.opponent) && sameTeam(r[5], d.club)).pop();
@@ -182,6 +173,137 @@ function isoDay(v) {
   return String(v || '').trim().slice(0, 10);
 }
 
+/* ---------------- daily digest ---------------- */
+const C = { TS: 0, CONF: 2, DATE: 3, CLUB: 4, OPP: 5, ANS: 6, COMMENTS: 16, SIDE: 18, NAME: 19, STATUS: 21, H: 22, A: 23, GOALS: 24, DIGEST: 25 };
+const homeOf = r => (r[C.SIDE] === 'Home' ? r[C.CLUB] : r[C.OPP]);
+const awayOf = r => (r[C.SIDE] === 'Home' ? r[C.OPP] : r[C.CLUB]);
+const matchKey = r => `${isoDay(r[C.DATE])}|${key(homeOf(r))}|${key(awayOf(r))}`;
+
+// Runs every morning (trigger installed by setup). Safe to run by hand – it only sends what hasn't been sent.
+function sendDailyDigest() {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const sh = getLog().getSheets()[0], rows = sh.getDataRange().getValues().slice(1);
+    const fresh = rows.map((r, i) => i).filter(i => rows[i][C.CLUB] && !rows[i][C.DIGEST]);
+    if (!fresh.length) return { sent: 0 };
+    let refRows = [];
+    if (CONFIG.REF_LOG_SHEET_ID) { try { refRows = SpreadsheetApp.openById(CONFIG.REF_LOG_SHEET_ID).getSheets()[0].getDataRange().getValues().slice(1); } catch (e) { console.error(e); } }
+
+    // every match with a new report, using the latest report from each club (all-time, so late reports still compare)
+    const keys = [...new Set(fresh.map(i => matchKey(rows[i])))];
+    const matches = keys.map(k => {
+      const all = rows.filter(r => r[C.CLUB] && matchKey(r) === k).sort((x, y) => new Date(x[C.TS]) - new Date(y[C.TS]));
+      const last = side => all.filter(r => r[C.SIDE] === side).pop() || null;
+      const any = all[all.length - 1], home = homeOf(any), away = awayOf(any), date = isoDay(any[C.DATE]);
+      const ref = refRows.filter(r => isoDay(r[2]) === date && sameTeam(r[4], home) && sameTeam(r[7], away)).pop() || null;
+      return buildMatch({ conf: any[C.CONF], date, home, away, homeRep: last('Home'), awayRep: last('Away'), ref,
+        isNew: r => !!r && fresh.some(i => rows[i] === r) });
+    }).sort((a, b) => a.conf.localeCompare(b.conf) || a.date.localeCompare(b.date));
+
+    // one email per commissioner; conferences with no commissioner send their issues to the office
+    const byCommish = {}, officeIssues = [];
+    matches.forEach(m => {
+      const to = commissionersFor(m.conf, m.home).split(',').filter(Boolean);
+      if (!to.length) { if (m.issues.length) officeIssues.push(m); return; }
+      to.forEach(e => (byCommish[e] = byCommish[e] || []).push(m));
+    });
+    const when = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEE MMM d');
+    const office = [CONFIG.OFFICE_EMAIL, CONFIG.CC].filter(Boolean).join(',');
+    MailApp.sendEmail({ to: office, name: 'APSL Club Reports',
+      subject: `APSL final scores – ${matches.length} match${matches.length === 1 ? '' : 'es'} (${when})` +
+        (matches.some(m => m.mismatch) ? ' [SCORE MISMATCH]' : '') + (officeIssues.length ? ` [${officeIssues.length} need a commissioner]` : ''),
+      htmlBody: digestHtml('Final scores from club reports', matches, false) +
+        (officeIssues.length ? '<h3 style="font:700 15px Arial;margin:20px 0 6px">Issues – no commissioner email set for these conferences</h3>' +
+          digestHtml('', officeIssues, true, true) : '') + footerHtml(),
+      body: digestText(matches, false) + (officeIssues.length ? '\n\nISSUES (no commissioner set)\n' + digestText(officeIssues, true, true) : '') });
+    Object.entries(byCommish).forEach(([to, ms]) => {
+      const n = ms.filter(m => m.issues.length).length;
+      MailApp.sendEmail({ to, name: 'APSL Club Reports',
+        subject: `Club reports – ${ms.length} match${ms.length === 1 ? '' : 'es'}, ${n ? n + ' with issues' : 'no issues'} (${when})`,
+        htmlBody: digestHtml('Your conference – club post-match reports', ms, true) + footerHtml(), body: digestText(ms, true) });
+    });
+    const stamp = new Date();
+    fresh.forEach(i => sh.getRange(i + 2, C.DIGEST + 1).setValue(stamp));
+    return { sent: 1 + Object.keys(byCommish).length, matches: matches.length };
+  } finally { lock.releaseLock(); }
+}
+
+function buildMatch(m) {
+  const reps = [['home', m.homeRep], ['away', m.awayRep]].filter(([, r]) => r);
+  const sources = [];
+  if (m.ref) sources.push({ who: `Referee${m.ref[9] ? ' (' + m.ref[9] + ')' : ''}`, score: scoreOf(m.ref[5], m.ref[6], m.ref[8]) });
+  reps.forEach(([, r]) => sources.push({ who: r[C.CLUB], score: scoreOf(r[C.H], r[C.A], r[C.STATUS]) }));
+  const known = sources.filter(x => x.score !== '?');
+  const distinct = [...new Set(known.map(x => x.score))];
+  m.mismatch = distinct.length > 1;
+  m.score = m.ref && scoreOf(m.ref[5], m.ref[6], m.ref[8]) !== '?' ? scoreOf(m.ref[5], m.ref[6], m.ref[8]) : distinct.length === 1 ? distinct[0] : '?';
+  m.scoreBy = known.map(x => `${x.who} ${x.score}`).join(', ');
+  m.reportedBy = [m.ref ? 'referee' : '', ...reps.map(([, r]) => r[C.CLUB])].filter(Boolean);
+  m.missing = [m.ref || !CONFIG.REF_LOG_SHEET_ID ? '' : 'referee', m.homeRep ? '' : m.home, m.awayRep ? '' : m.away].filter(Boolean);
+  m.goals = reps.filter(([, r]) => r[C.GOALS]).map(([, r]) => `${r[C.CLUB]}: ${r[C.GOALS]}`);
+  m.issues = [];
+  if (m.mismatch) m.issues.push(`Score mismatch – ${m.scoreBy}`);
+  reps.forEach(([side, r]) => {
+    const tag = `${r[C.CLUB]} (${side})${m.isNew(r) ? '' : ' – earlier report'}`;
+    const nos = CHECKS.map(([k], i) => [k, String(r[C.ANS + i] || '')]).filter(([, v]) => /^No\b/.test(v))
+      .map(([k, v]) => shortLabel(k) + (v.includes(' – ') ? ' (' + v.split(' – ').slice(1).join(' – ') + ')' : ''));
+    if (nos.length) m.issues.push(`${tag} answered No: ${nos.join('; ')}`);
+    if (String(r[C.COMMENTS] || '').trim()) m.issues.push(`${tag} comment: “${String(r[C.COMMENTS]).trim()}”`);
+  });
+  if (m.homeRep && m.awayRep) diffChecks(m.homeRep, m.awayRep).forEach(x => m.issues.push(`Clubs disagree – ${x}`));
+  return m;
+}
+// Disagreements between the two clubs' answers ("Unsure" never counts).
+function diffChecks(a, b) {
+  const first = v => String(v || '').split(' – ')[0], col = k => C.ANS + CHECKS.findIndex(([x]) => x === k), out = [];
+  const differ = (x, y) => x && y && x !== y && x !== 'Unsure' && y !== 'Unsure';
+  SHARED.forEach(k => { const x = first(a[col(k)]), y = first(b[col(k)]); if (differ(x, y)) out.push(`${shortLabel(k)}: ${a[C.CLUB]} ${x}, ${b[C.CLUB]} ${y}`); });
+  [[a, b], [b, a]].forEach(([p, q]) => {
+    const x = first(p[col('ourCards')]), y = first(q[col('oppCards')]);
+    if (differ(x, y)) out.push(`${p[C.CLUB]}'s sub cards & roster: ${p[C.CLUB]} ${x}, ${q[C.CLUB]} ${y}`);
+  });
+  return out;
+}
+function niceDate(iso) {
+  const [y, mo, d] = String(iso).split('-').map(Number);
+  return y ? Utilities.formatDate(new Date(y, mo - 1, d), Session.getScriptTimeZone(), 'EEE MMM d') : String(iso);
+}
+function scoreLine(m) {
+  const sc = m.score === '?' ? 'score not reported' : m.score === 'not played' ? 'not played' : m.score.replace('-', ' – ');
+  return `${m.home} ${m.score === '?' || m.score === 'not played' ? 'v' : sc} ${m.away}${m.score === '?' || m.score === 'not played' ? ' – ' + sc : ''}`;
+}
+function digestText(ms, detail, issuesOnly) {
+  const out = []; let conf = '';
+  ms.forEach(m => {
+    if (m.conf !== conf) { conf = m.conf; out.push('', conf.toUpperCase()); }
+    if (!issuesOnly) {
+      out.push(`  ${niceDate(m.date)}: ${scoreLine(m)}${m.mismatch ? '  [SCORE MISMATCH: ' + m.scoreBy + ']' : ''}`);
+      out.push(`    Reported by ${m.reportedBy.join(', ') || 'nobody yet'}${m.missing.length ? ' · waiting on ' + m.missing.join(', ') : ''}`);
+      if (detail) m.goals.forEach(g => out.push(`    Goals – ${g}`));
+    } else out.push(`  ${niceDate(m.date)}: ${scoreLine(m)}`);
+    if (detail || issuesOnly) m.issues.forEach(x => out.push(`    ⚠ ${x}`));
+  });
+  return out.join('\n').trim();
+}
+function digestHtml(title, ms, detail, issuesOnly) {
+  const h = escapeHtml; let conf = '', out = title ? `<h2 style="font:800 18px Arial;color:#003da6;margin:0 0 4px">${h(title)}</h2>` : '';
+  ms.forEach(m => {
+    if (m.conf !== conf) { conf = m.conf; out += `<h3 style="font:700 14px Arial;text-transform:uppercase;letter-spacing:.04em;color:#1f1f1f;margin:18px 0 6px;border-bottom:2px solid #ec0332;padding-bottom:3px">${h(conf)}</h3>`; }
+    out += `<div style="font:14px/1.45 Arial;margin:0 0 10px;padding:8px 10px;border:1px solid ${m.mismatch ? '#ec0332' : '#dfe3ec'};border-radius:8px;background:${m.mismatch ? '#fde6eb' : '#fff'}">` +
+      `<b>${h(scoreLine(m))}</b> <span style="color:#5f6675">· ${h(niceDate(m.date))}</span>` +
+      (m.mismatch ? `<div style="color:#ec0332;font-weight:700">Score mismatch: ${h(m.scoreBy)}</div>` : '') +
+      (issuesOnly ? '' : `<div style="color:#5f6675;font-size:12px">Reported by ${h(m.reportedBy.join(', ') || 'nobody yet')}${m.missing.length ? ' · waiting on ' + h(m.missing.join(', ')) : ''}</div>`) +
+      (detail && !issuesOnly ? m.goals.map(g => `<div style="font-size:13px">⚽ ${h(g)}</div>`).join('') : '') +
+      ((detail || issuesOnly) && m.issues.filter(x => !x.startsWith('Score mismatch')).length
+        ? `<ul style="margin:6px 0 0;padding-left:18px">${m.issues.filter(x => !x.startsWith('Score mismatch')).map(x => `<li>${h(x)}</li>`).join('')}</ul>` : '') + '</div>';
+  });
+  return out;
+}
+function footerHtml() {
+  let url = ''; try { url = getLog().getUrl ? getLog().getUrl() : ''; } catch (e) {}
+  return `<p style="font:12px Arial;color:#5f6675;margin-top:16px">Full answers, goals and assists are in the ${url ? `<a href="${url}">Club Post-Match Reports</a>` : 'Club Post-Match Reports'} sheet.</p>`;
+}
+
 /* ---------------- storage ---------------- */
 function getRootFolder() {
   const props = PropertiesService.getScriptProperties();
@@ -202,7 +324,7 @@ function getLog() {
     const sh = ss.getSheets()[0];
     sh.appendRow(['Timestamp', 'Email Address', 'Conference', 'Date of the Match', "Your Club's Name", 'Your Opponent',
       ...CHECKS.map(c => c[1]), 'Other comments', 'Verification', 'Home/Away', 'Submitted by', 'Cross-check',
-      'Match status', 'Home score', 'Away score', 'Goals & assists (submitting club)']);
+      'Match status', 'Home score', 'Away score', 'Goals & assists (submitting club)', 'Included in digest']);
     sh.getRange('D:D').setNumberFormat('@');      // keep dates as typed so matches line up
     sh.setFrozenRows(1);
     props.setProperty('LOG_SHEET_ID', ss.getId());
@@ -262,5 +384,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 // Run once from the editor to grant permissions and create the folder, log and settings sheets.
 function setup() {
   getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'sendDailyDigest').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sendDailyDigest').timeBased().atHour(CONFIG.DIGEST_HOUR).everyDays(1).create();
   if (CONFIG.REF_LOG_SHEET_ID) SpreadsheetApp.openById(CONFIG.REF_LOG_SHEET_ID).getName();   // confirms access to the referee log
 }

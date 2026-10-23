@@ -16,15 +16,28 @@ Cards, subs and photos stay with the referee.
 ## What happens on submit
 
 1. A row is added to the **Club Post-Match Reports** sheet – same column order and headers as the old form's
-   response sheet, then Home/Away, Submitted by, Cross-check, Match status, Home score, Away score and
-   Goals & assists.
-2. The final score is compared with the referee's report (Referee Reports Log, set in `REF_LOG_SHEET_ID`) and the
-   other club's report – a difference puts **[SCORE MISMATCH]** in the subject. If the other club has reported,
-   the match-day checks are compared too; disagreements put **[CLUBS DISAGREE]** in the subject.
-   "Unsure" never counts as a disagreement.
-3. The office gets the report, copied to the **conference commissioner** (column D of the Assignors tab).
-   Every "No" is listed in the subject, e.g. `[No: Physio, Balls]`. Referee assignors are never copied.
-4. The submitter gets a copy.
+   response sheet, then Home/Away, Submitted by, Cross-check, Match status, Home score, Away score,
+   Goals & assists and Included in digest.
+2. The submitter gets a copy by email. **Nothing goes to the office or commissioners at this point.**
+
+## Morning digest (one email per person, per day)
+
+Every morning at 8 AM (`DIGEST_HOUR`) the script looks at reports received since the last digest. Nothing is sent
+on days with no new reports.
+
+- **League office** – one email with the **final score** of each match, grouped by conference, who has reported,
+  and who it's still waiting on. Score mismatches are flagged in red and in the subject.
+- **Each conference commissioner** (column D of the Assignors tab) – one email with their conference's scores,
+  **goals & assists**, and the **issues**:
+  - any **No** answer (with the club's note)
+  - a **score mismatch** between the referee's report and either club
+  - the two clubs **disagreeing** on a check ("Unsure" never counts)
+  - any **written comment**
+- A conference with **no commissioner email** has its issues added to the office digest, so nothing is lost.
+
+Cross-checks run when the digest is built, so a referee or club report that arrives late is still compared. If the
+second club reports after a digest has gone out, the match appears again in the next one with both reports.
+Referee assignors are never emailed. To send a digest right away, run `sendDailyDigest` from the editor.
 
 ## Setup (about 5 minutes)
 
@@ -32,7 +45,8 @@ Cards, subs and photos stay with the referee.
 2. Paste `Code.gs`. Add an HTML file named **Index** and paste `Index.html`. Save.
 3. Optional – share one club list and one commissioner list with the referee form: paste the referee system's
    **Referee Report Settings** sheet ID into `SETTINGS_SHEET_ID`. Leave blank for a separate **Club Report Settings** sheet.
-4. Run **setup** once and approve the permissions.
+4. Check **Project Settings → Time zone** is (GMT-05:00) Eastern Time, so the digest arrives at 8 AM Eastern.
+   Then run **setup** once and approve the permissions – it also schedules the daily digest.
 5. Deploy → New deployment → Web app → Execute as **Me**, Who has access **Anyone**.
 6. Fill in commissioner emails (column D of the Assignors tab), then send a test report.
 
