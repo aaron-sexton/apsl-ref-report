@@ -248,6 +248,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <section class="card" id="suppCard">
   <h2><span class="n">8</span>Supplemental report <span id="suppReq" class="pill hidden">required</span></h2>
   <p class="hint" id="suppHint">Required for any red card, dismissal of a team official, serious injury, abandonment, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.</p>
+  <p style="margin:0 0 12px"><button type="button" id="getTemplate" style="width:100%">⬇ Download blank supplemental form (PDF)</button></p>
+  <div id="templateMsg"></div>
   <div class="drop">
     <strong>Upload supplemental form</strong>
     <div class="sub">Photo or PDF of the completed USSF form</div>
@@ -643,6 +645,24 @@ function startForm(setup) {
 if (window.google && google.script && google.script.run) {
   google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
 } else startForm(null);
+
+/* ---------- blank supplemental template ---------- */
+$("#getTemplate").addEventListener("click", () => {
+  const btn = $("#getTemplate"), msg = $("#templateMsg");
+  const fail = () => { btn.disabled = false; btn.textContent = "⬇ Download blank supplemental form (PDF)";
+    msg.innerHTML = `<div class="notice warn">Couldn't load the form. Ask the league office at <a href="mailto:${CONFIG.officeEmail}">${CONFIG.officeEmail}</a>, or write your statement in the box below.</div>`; };
+  if (!(window.google && google.script && google.script.run)) return fail();
+  btn.disabled = true; btn.textContent = "Preparing…"; msg.innerHTML = "";
+  google.script.run.withFailureHandler(fail).withSuccessHandler(r => {
+    if (!r || !r.ok) return fail();
+    const bytes = Uint8Array.from(atob(r.data), c => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: r.type || "application/pdf" }));
+    const a = document.createElement("a"); a.href = url; a.download = r.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    btn.disabled = false; btn.textContent = "⬇ Download blank supplemental form (PDF)";
+    msg.innerHTML = `<div class="notice ok">Downloaded. Fill it in, then photograph or upload it here.</div>`;
+  }).getSupplementalTemplate();
+});
 
 /* ---------- submit ---------- */
 $("#f").addEventListener("submit", e => {

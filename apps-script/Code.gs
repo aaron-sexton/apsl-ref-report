@@ -18,6 +18,7 @@ const CONFIG = {
   CC: '',                                    // e.g. 'assignor1@example.com,assignor2@example.com'
   ROOT_FOLDER_NAME: 'APSL Referee Reports',
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
+  SUPPLEMENTAL_TEMPLATE_NAME: 'Supplemental Referee Report (blank).pdf',   // put this file in the root folder
 };
 
 // Serves the referee form. The web app URL is the link you give referees.
@@ -52,6 +53,14 @@ function getSetup() {
     if (club && !map[c].includes(club)) map[c].push(club);
   });
   return { conferences: Object.keys(map).map(name => ({ name, clubs: map[name].sort((a, b) => a.localeCompare(b)) })) };
+}
+// Blank supplemental form for the page's download button. Reads the PDF named above from the
+// "APSL Referee Reports" folder, so you can swap in a new version without touching code.
+function getSupplementalTemplate() {
+  const files = getRootFolder().getFilesByName(CONFIG.SUPPLEMENTAL_TEMPLATE_NAME);
+  if (!files.hasNext()) return { ok: false, error: 'Template not found.' };
+  const blob = files.next().getBlob();
+  return { ok: true, name: CONFIG.SUPPLEMENTAL_TEMPLATE_NAME, type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
 }
 function getClubsSheet() {
   const ss = getSettings();
