@@ -7,6 +7,9 @@
  *   3. Emails the full report + attachments to the league office, copying the assignor and
  *      commissioner for that conference / home team (from the "Referee Report Settings" sheet)
  *   4. Emails the referee a confirmation
+ * Before kickoff, referees save a pre-match checklist (step 1). It goes to the "Pre-match" tab of the
+ * log sheet, and the referee gets an emailed link to finish the report (step 2) on any device. If no
+ * report arrives REMINDER_AFTER_HOURS after kickoff, sendReminders() (hourly trigger) emails the link again.
  * The form's conference and team dropdowns come from the settings sheet's Clubs tab (Conference | Club).
  *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
@@ -18,6 +21,8 @@ const CONFIG = {
   CC: '',                                    // e.g. 'assignor1@example.com,assignor2@example.com'
   ROOT_FOLDER_NAME: 'APSL Referee Reports',
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
+  REMINDER_AFTER_HOURS: 18,                  // one reminder if the report isn't in by then (due within 24h)
+  WEB_APP_URL: '',                           // optional: paste the /exec link if emailed links ever look wrong
   SUPPLEMENTAL_TEMPLATE_NAME: 'Supplemental Referee Report (blank).pdf',   // put this file in the root folder
 };
 
@@ -108,8 +113,13 @@ function handle(data) {
     // Office email
     const flag = data.supplementalReasons ? ` [SUPPLEMENTAL: ${data.supplementalReasons}]` : '';
     const subject = `Ref Report ${f.gameNo ? '#' + f.gameNo + ' ' : ''}– ${f.home} ${f.homeScore}-${f.awayScore} ${f.away} (${f.gameDate})${flag}`;
+    const pm = data.prematchId ? markSubmitted(data.prematchId) : null;
+    const pmLine = pm ? `Pre-match checklist saved to the league log ${fmt(pm.firstSaved)}` +
+      (pm.kickoffMs ? (pm.firstSaved.getTime() <= pm.kickoffMs ? ' (before scheduled kickoff).' : ' – <b>after scheduled kickoff</b>.') : '.')
+      : 'Pre-match checklist was <b>not</b> saved to the league log before this report.';
     const html =
       `<p><a href="${gameFolder.getUrl()}">Open this game's folder in Drive</a></p>` +
+      `<p style="color:#555">${pmLine}</p>` +
       (data.warnings ? `<p style="background:#fff6db;padding:8px;border-radius:6px"><b>Validator notes:</b> ${escapeHtml(data.warnings)}</p>` : '') +
       `<pre style="font:13px/1.45 Menlo,Consolas,monospace;white-space:pre-wrap">${escapeHtml(data.report)}</pre>`;
     const mail = { to: CONFIG.OFFICE_EMAIL, subject, htmlBody: html, body: data.report, attachments: blobs, name: 'APSL Referee Reports' };
@@ -130,12 +140,103 @@ function handle(data) {
         name: 'APSL Referee Reports',
       });
     }
-    return { ok: true };
+    return { ok: true, appUrl: appUrl() };
   } catch (err) {
     console.error(err);
     return { ok: false, error: String(err.message || err) };
   }
 }
+
+/* ---------------- pre-match checklist (step 1) ---------------- */
+// Pre-match tab columns
+const PM = { ID: 1, FIRST: 2, LAST: 3, KICKOFF: 4, KICKOFF_MS: 5, CONF: 6, HOME: 7, AWAY: 8, REF: 9, REF_EMAIL: 10,
+             PROBLEMS: 11, SUBMITTED: 12, REMINDED: 13, CLIENT_AT: 14, STATE: 15 };
+function getPrematchSheet() {
+  const ss = getLog();
+  let sh = ss.getSheetByName('Pre-match');
+  if (!sh) {
+    sh = ss.insertSheet('Pre-match');
+    sh.appendRow(['ID', 'First saved', 'Last saved', 'Kickoff', 'Kickoff (ms)', 'Conference', 'Home', 'Away', 'Referee',
+      'Referee email', 'Checklist problems', 'Report submitted', 'Reminder sent', 'Phone time', 'Saved form (do not edit)']);
+    sh.setFrozenRows(1); sh.hideColumns(PM.KICKOFF_MS); sh.hideColumns(PM.STATE);
+  }
+  return sh;
+}
+function findPrematchRow(sh, id) {
+  if (!id) return 0;
+  const ids = sh.getRange(2, PM.ID, Math.max(sh.getLastRow() - 1, 1), 1).getValues();
+  const i = ids.findIndex(r => String(r[0]) === String(id));
+  return i < 0 ? 0 : i + 2;
+}
+function newId() {
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let id = ''; for (let i = 0; i < 8; i++) id += abc[Math.floor(Math.random() * abc.length)];
+  return id;
+}
+// Called by the page when the referee taps "Save checklist & continue".
+function savePrematch(payloadJson) {
+  const d = JSON.parse(payloadJson), sm = d.summary || {};
+  if (!sm.home || !sm.away || !isEmail(sm.refEmail)) return { ok: false, error: 'Missing match or referee details.' };
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = getPrematchSheet(), now = new Date();
+    let row = findPrematchRow(sh, d.id), id = d.id, isNew = !row;
+    if (isNew) { id = newId(); row = sh.getLastRow() + 1; sh.getRange(row, PM.ID).setValue(id); sh.getRange(row, PM.FIRST).setValue(now); }
+    const vals = [[now, `${sm.gameDate} ${sm.kickoff}`, d.kickoffMs || '', sm.division, sm.home, sm.away, sm.refName, sm.refEmail, sm.problems || 'None']];
+    sh.getRange(row, PM.LAST, 1, vals[0].length).setValues(vals);
+    sh.getRange(row, PM.CLIENT_AT).setValue(d.clientAt || '');
+    sh.getRange(row, PM.STATE).setValue(JSON.stringify(d.state || {}));
+    const first = sh.getRange(row, PM.FIRST).getValue();
+    if (isNew) MailApp.sendEmail({
+      to: sm.refEmail, name: 'APSL Referee Reports',
+      subject: `Finish your APSL match report – ${sm.home} v ${sm.away}`,
+      body: `Thanks ${sm.refName} – your pre-match checklist for ${sm.home} v ${sm.away} (${sm.gameDate} ${sm.kickoff}) is saved.\n\n` +
+            `After the match, finish your report here (works on any phone or computer):\n${resumeLink(id)}\n\n` +
+            `Reports are due within 24 hours of the final whistle.`,
+    });
+    return { ok: true, id, savedAt: new Date(first).toISOString() };
+  } finally { lock.releaseLock(); }
+}
+// Called by the page when opened from a resume link (?r=ID).
+function loadPrematch(id) {
+  const sh = getPrematchSheet(), row = findPrematchRow(sh, id);
+  if (!row) return { ok: false };
+  const r = sh.getRange(row, 1, 1, PM.STATE).getValues()[0];
+  let state = {}; try { state = JSON.parse(r[PM.STATE - 1] || '{}'); } catch (e) {}
+  const iso = v => v instanceof Date ? v.toISOString() : '';
+  return { ok: true, state, savedAt: iso(r[PM.FIRST - 1]), clientAt: String(r[PM.CLIENT_AT - 1] || ''), submitted: iso(r[PM.SUBMITTED - 1]) };
+}
+function markSubmitted(id) {
+  const sh = getPrematchSheet(), row = findPrematchRow(sh, id);
+  if (!row) return null;
+  sh.getRange(row, PM.SUBMITTED).setValue(new Date());
+  const r = sh.getRange(row, 1, 1, PM.KICKOFF_MS).getValues()[0];
+  return { firstSaved: new Date(r[PM.FIRST - 1]), kickoffMs: Number(r[PM.KICKOFF_MS - 1]) || 0 };
+}
+// Hourly trigger (installed by setup): one reminder per match if the report isn't in.
+function sendReminders() {
+  const sh = getPrematchSheet(), n = sh.getLastRow() - 1;
+  if (n < 1) return;
+  const rows = sh.getRange(2, 1, n, PM.REMINDED).getValues(), now = Date.now();
+  rows.forEach((r, i) => {
+    const ko = Number(r[PM.KICKOFF_MS - 1]);
+    if (!ko || r[PM.SUBMITTED - 1] || r[PM.REMINDED - 1] || !isEmail(r[PM.REF_EMAIL - 1])) return;
+    if (now < ko + CONFIG.REMINDER_AFTER_HOURS * 3600e3 || now > ko + 7 * 24 * 3600e3) return;
+    MailApp.sendEmail({
+      to: r[PM.REF_EMAIL - 1], name: 'APSL Referee Reports',
+      subject: `Reminder: match report due – ${r[PM.HOME - 1]} v ${r[PM.AWAY - 1]}`,
+      body: `Hi ${r[PM.REF - 1]} – we haven't received your match report for ${r[PM.HOME - 1]} v ${r[PM.AWAY - 1]} (${r[PM.KICKOFF - 1]}). ` +
+            `Reports are due within 24 hours of the final whistle.\n\nFinish it here – your pre-match checklist is already filled in:\n${resumeLink(r[PM.ID - 1])}`,
+    });
+    sh.getRange(i + 2, PM.REMINDED).setValue(new Date());
+  });
+}
+function appUrl() {
+  // Workspace accounts return /a/macros/<domain>/… links that can ask outside referees to sign in; use the public form.
+  return CONFIG.WEB_APP_URL || ScriptApp.getService().getUrl().replace(/\/a\/macros\/[^/]+\//, '/macros/');
+}
+function resumeLink(id) { return `${appUrl()}?r=${encodeURIComponent(id)}`; }
+function fmt(d) { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'EEE MMM d, h:mm a z'); }
 
 /* ---------------- helpers ---------------- */
 function validate(d) {
@@ -220,4 +321,8 @@ function isEmail(s) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s || ''));
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // Run once from the editor to grant permissions and create the Drive folder + log sheet.
-function setup() { getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota(); }
+function setup() {
+  getRootFolder(); getLog(); getPrematchSheet(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'sendReminders'))
+    ScriptApp.newTrigger('sendReminders').timeBased().everyHours(1).create();
+}

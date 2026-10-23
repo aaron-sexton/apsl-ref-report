@@ -105,6 +105,31 @@ button.primary:disabled{opacity:.55;cursor:not-allowed}
 details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
 .done{text-align:center;padding:40px 16px}
 .done .big{font-size:52px}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.steps button{border-radius:10px;font-weight:600;color:var(--muted);text-align:left}
+.steps button b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--ink);font-size:12px;margin-right:6px}
+.steps button.on{border-color:var(--brand);color:var(--ink);box-shadow:inset 0 -3px 0 var(--accent)}
+.steps button.on b{background:var(--brand);color:#fff}
+.steps button.done b{background:var(--ok);color:#fff}
+.pm-list{display:flex;flex-direction:column;gap:8px}
+.pm{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.pm.is-ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.pm.is-problem{border-color:var(--accent);background:var(--accent-soft)}
+.pm.invalid{border-color:var(--accent)!important;background:var(--accent-soft)}
+.pm-q{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.pm-q span{font-size:14px;font-weight:600}
+.pm-q small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.seg{display:flex;flex:none;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-width:74px;font-weight:700;font-size:14px;background:var(--field);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on[data-v="ok"]{background:var(--ok);color:#fff}
+.seg button.on[data-v="problem"]{background:var(--accent);color:#fff}
+.pm-extra{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pm-extra .full{grid-column:1/-1}
+@media (max-width:560px){.pm-q{flex-direction:column;align-items:stretch}.seg button{flex:1}.pm-extra{grid-template-columns:1fr}}
+.savebar{margin:4px 0 0}
+.matchbar{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:0 0 14px}
+.matchbar button{flex:none;font-size:14px}
 footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px}
 </style>
 </head>
@@ -112,7 +137,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <header><div class="wrap">
   <small>American Premier Soccer League</small>
   <h1>Referee Match Report</h1>
-  <p>Due within 24 hours of the final whistle. Takes about 5 minutes. Your progress saves on this device as you go.</p>
+  <p>Step 1 before kickoff, step 2 after the match. Reports are due within 24 hours of the final whistle.</p>
 </div></header>
 
 <main id="app">
@@ -127,7 +152,15 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 </div>
 
 <form id="f" novalidate>
+<input type="hidden" id="step" value="1">
+<input type="hidden" id="pmId"><input type="hidden" id="pmSavedAt"><input type="hidden" id="pmClientAt"><input type="hidden" id="pmSkipped">
+<nav class="steps" aria-label="Report steps">
+  <button type="button" data-goto="1" id="tab1"><b>1</b> Before kickoff</button>
+  <button type="button" data-goto="2" id="tab2"><b>2</b> After the match</button>
+</nav>
+<div id="stepNote"></div>
 
+<div id="step1">
 <!-- 1. MATCH -->
 <section class="card">
   <h2><span class="n">1</span>Match</h2>
@@ -145,7 +178,50 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
     <div class="full"><label for="venue">Venue</label><input id="venue" placeholder="Field name and city" autocapitalize="words"></div>
     <div><label for="matchType">Match type</label>
       <select id="matchType"><option>Regular season</option><option>Playoff</option><option>Cup</option><option>Friendly</option></select></div>
-    <div><label for="status">Match status <span class="req">*</span></label>
+  </div>
+</section>
+
+<!-- 2. OFFICIALS -->
+<section class="card">
+  <h2><span class="n">2</span>Referee crew</h2>
+  <p class="hint">You are the person submitting. Your email gets a copy of the report.</p>
+  <div class="grid">
+    <div><label for="refName">Your name <span class="req">*</span></label><input id="refName" required autocomplete="name"></div>
+    <div><label for="refRole">Your role <span class="req">*</span></label>
+      <select id="refRole" required><option>Referee</option><option>Assistant Referee</option><option>4th Official</option></select></div>
+    <div><label for="refId">USSF ID <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="refId" inputmode="numeric" placeholder="0000-0000-0000-0000"></div>
+    <div><label for="refPhone">Phone <span class="req">*</span></label><input id="refPhone" type="tel" required autocomplete="tel"></div>
+    <div class="full"><label for="refEmail">Email <span class="req">*</span></label><input id="refEmail" type="email" required autocomplete="email"></div>
+    <div><label for="ar1">AR 1</label><input id="ar1" placeholder="Name"></div>
+    <div><label for="ar2">AR 2</label><input id="ar2" placeholder="Name"></div>
+    <div class="full"><label for="fourth">4th official (playoffs)</label><input id="fourth" placeholder="Name"></div>
+  </div>
+</section>
+
+<!-- PRE-MATCH CHECKLIST -->
+<section class="card">
+  <h2><span class="n">3</span>Pre-match checklist</h2>
+  <p class="hint">Walk the field and check each item before kickoff. Tap <b>OK</b> or <b>Problem</b> – a problem needs a few words. Section numbers refer to the APSL Regulations &amp; Club Manual.</p>
+  <div id="preList" class="pm-list"></div>
+</section>
+
+<div class="savebar">
+  <div id="saveMsg"></div>
+  <button type="button" class="primary" id="saveStep1">Save checklist &amp; continue</button>
+  <p class="hint" style="text-align:center;margin:10px 0 0">Match didn't happen? <a href="#" id="skipStep1">Skip to the match report</a></p>
+</div>
+</div>
+
+<div id="step2" class="hidden">
+<div class="card matchbar" id="matchBar">
+  <div><strong id="mbTeams">Match</strong><div class="hint" id="mbInfo" style="margin:2px 0 0"></div></div>
+  <button type="button" id="editStep1">Edit checklist</button>
+</div>
+<!-- 3. RESULT -->
+<section class="card">
+  <h2><span class="n">1</span>Result and goals</h2>
+  <div class="grid">
+    <div class="full"><label for="status">Match status <span class="req">*</span></label>
       <select id="status" required>
         <option value="Completed">Completed</option>
         <option value="Abandoned">Abandoned (stopped and not finished)</option>
@@ -180,30 +256,6 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
         <option>Sent-off player or coach refused to leave</option>
         <option>Other</option></select></div>
       </div><p class="hint" style="margin:6px 0 0">Forfeit grounds from Handbook §4.2.7. Enter the score at the time play stopped, if any.</p></div>
-  </div>
-</section>
-
-<!-- 2. OFFICIALS -->
-<section class="card">
-  <h2><span class="n">2</span>Referee crew</h2>
-  <p class="hint">You are the person submitting. Your email gets a copy of the report.</p>
-  <div class="grid">
-    <div><label for="refName">Your name <span class="req">*</span></label><input id="refName" required autocomplete="name"></div>
-    <div><label for="refRole">Your role <span class="req">*</span></label>
-      <select id="refRole" required><option>Referee</option><option>Assistant Referee</option><option>4th Official</option></select></div>
-    <div><label for="refId">USSF ID <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="refId" inputmode="numeric" placeholder="0000-0000-0000-0000"></div>
-    <div><label for="refPhone">Phone <span class="req">*</span></label><input id="refPhone" type="tel" required autocomplete="tel"></div>
-    <div class="full"><label for="refEmail">Email <span class="req">*</span></label><input id="refEmail" type="email" required autocomplete="email"></div>
-    <div><label for="ar1">AR 1</label><input id="ar1" placeholder="Name"></div>
-    <div><label for="ar2">AR 2</label><input id="ar2" placeholder="Name"></div>
-    <div class="full"><label for="fourth">4th official (playoffs)</label><input id="fourth" placeholder="Name"></div>
-  </div>
-</section>
-
-<!-- 3. RESULT -->
-<section class="card">
-  <h2><span class="n">3</span>Result and goals</h2>
-  <div class="grid">
     <div><label for="homeScore">Home goals <span class="req">*</span></label><input id="homeScore" type="number" min="0" max="40" inputmode="numeric" required></div>
     <div><label for="awayScore">Away goals <span class="req">*</span></label><input id="awayScore" type="number" min="0" max="40" inputmode="numeric" required></div>
   </div>
@@ -214,7 +266,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <!-- 4. DISCIPLINE -->
 <section class="card">
-  <h2><span class="n">4</span>Cards and dismissals</h2>
+  <h2><span class="n">2</span>Cards and dismissals</h2>
   <p class="hint">Include coaches and team officials. For a second yellow, pick the reason for the second caution. Any send-off needs a supplemental report (step 8).</p>
   <div id="cards" class="row-list"></div>
   <button type="button" class="add" data-add="card">+ Add card</button>
@@ -222,7 +274,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <!-- 5. SUBS -->
 <section class="card">
-  <h2><span class="n">5</span>Substitutions</h2>
+  <h2><span class="n">3</span>Substitutions</h2>
   <p class="hint">Add every substitution with the number and name of both players. Limit: 7 per team, no re-entry, plus 1 concussion substitute.</p>
   <div id="subs" class="row-list"></div>
   <button type="button" class="add" data-add="sub">+ Add substitution</button>
@@ -230,70 +282,32 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div id="subWarn"></div>
 </section>
 
-<!-- 6. MATCH CONDUCT -->
+<!-- KICKOFF & INCIDENTS -->
 <section class="card">
-  <h2><span class="n">6</span>Match day checks</h2>
-  <p class="hint">Based on the APSL Regulations &amp; Club Manual. Section numbers are shown so the office can follow up.</p>
-  <div class="grid">
-    <div><label for="physioHome">Physio / medical person <span class="req">*</span></label><input id="physioHome" placeholder="Name – the home team must provide one"></div>
-    <div><label for="physioAway">Away team physio <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="physioAway" placeholder="Name, if they brought one"></div>
-    <div><label for="actualKO">Actual kickoff</label><input id="actualKO" type="time"></div>
-    <div><label for="paid">Referee fees paid? <span class="req">*</span></label>
-      <select id="paid" required><option value="">Select…</option><option>Yes – in full, before kickoff</option><option>Yes – in full, but after kickoff</option><option>Partially paid</option><option>Not paid</option></select></div>
-    <div class="full hidden" id="paidNoteWrap"><label for="paidNote">Payment details</label><input id="paidNote" placeholder="Amount received, who still owes what"></div>
+  <h2><span class="n">4</span>Kickoff &amp; incidents</h2>
+  <div class="grid" style="margin-bottom:12px">
+    <div><label for="actualKO">Actual kickoff time</label><input id="actualKO" type="time"></div>
   </div>
+  <div id="koList" class="pm-list"></div>
 
-  <p class="hint" style="margin:16px 0 8px"><strong>Tick anything that happened.</strong> Items marked <span class="pill">describe below</span> need a sentence in the notes box.</p>
+  <p class="hint" style="margin:16px 0 8px"><strong>Tick anything that happened during the match.</strong> Items marked <span class="pill">describe below</span> need a sentence in the notes box.</p>
   <div class="checks">
-    <div class="grp">Kickoff &amp; arrival</div>
-    <label class="check"><input type="checkbox" id="c_lateHome"><span>Home team delayed kickoff<small>Not ready with at least 7 players at kickoff time. More than 15 minutes late is grounds for a forfeit (§4.2.7)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_lateAway"><span>Away team delayed kickoff<small>Same rule as above (§4.2.7)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_walkout"><span>No pre-match walkout<small>Both teams and referees line up at center field (§4.2.1)</small></span></label>
-
-    <div class="grp">Home ground &amp; match day standards</div>
-    <label class="check"><input type="checkbox" id="c_noPhysio"><span>Home team had no physio / medical person<small>Home team must have a physio and medical kit at every match (§4.2.1, §8.3.2)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_ground"><span>Field or match day standards not met<small>Tick what applied (§4.1, §4.2.1, §8.3.3)</small></span></label>
-    <div id="groundList" class="sublist hidden">
-      <label><input type="checkbox" id="gr_1" data-ground="Field not properly marked"> Field not properly marked</label>
-      <label><input type="checkbox" id="gr_2" data-ground="Goal nets missing or not secured"> Goal nets missing or not secured</label>
-      <label><input type="checkbox" id="gr_3" data-ground="Fewer than 6 match balls"> Fewer than 6 match balls</label>
-      <label><input type="checkbox" id="gr_4" data-ground="Corner flags missing"> Corner flags missing</label>
-      <label><input type="checkbox" id="gr_5" data-ground="No team benches"> No team benches</label>
-      <label><input type="checkbox" id="gr_6" data-ground="No referee table and chair"> No referee table and chair</label>
-      <label><input type="checkbox" id="gr_7" data-ground="No water for referees"> No water for referees</label>
-      <label><input type="checkbox" id="gr_8" data-ground="Technical areas not marked"> Technical areas not marked</label>
-      <label><input type="checkbox" id="gr_9" data-ground="Field not enclosed from spectators"> Field not enclosed from spectators</label>
-      <label><input type="checkbox" id="gr_10" data-ground="Field smaller than 110 x 65 yards"> Field smaller than 110 × 65 yards</label>
-      <label><input type="checkbox" id="gr_11" data-ground="Amplified music interfered with the match"> Amplified music interfered with the match</label>
-    </div>
-
-    <div class="grp">Rosters &amp; eligibility</div>
-    <label class="check"><input type="checkbox" id="c_roster"><span>Roster form problem<small>Not given to you before kickoff (allowed until halftime) or no copy to the opponent, unclear photos, not the league's printed form, or printed more than 48 hours before the match (§4.2.2)</small></span></label>
     <label class="check"><input type="checkbox" id="c_eligibility"><span>Possible ineligible player <span class="pill">describe below</span><small>Played but not on the roster form, ID didn't match the photo, arrived after the second half started, or more than 20 dressed (§4.2.2, §4.2.4, §8.3.4)</small></span></label>
-
-    <div class="grp">Teams &amp; benches</div>
-    <label class="check"><input type="checkbox" id="c_kit"><span>Uniform problem<small>Kit clash (visitors must change), mismatched kits, no captain's armband, or no APSL sleeve logo (§4.2.3)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_bibs"><span>Substitutes without bibs, or no sub cards used<small>Subs must wear bibs on the bench, warming up, and after coming off (§4.2.4, §4.2.5)</small></span></label>
     <label class="check"><input type="checkbox" id="c_bench"><span>Unauthorized people at the bench or on the field <span class="pill">describe below</span><small>Only rostered players, coaches/managers and the team physio; staff stand only in the technical area (§4.1)</small></span></label>
-    <label class="check"><input type="checkbox" id="c_noCoach"><span>A team had no coach present<small>Each team needs a licensed coach at the match (§4.2.1)</small></span></label>
-
-    <div class="grp">Conduct &amp; safety</div>
     <label class="check"><input type="checkbox" id="c_injury"><span>Serious injury <span class="pill">needs supplemental</span></span></label>
     <label class="check"><input type="checkbox" id="c_refusedLeave"><span>Sent-off player or team official refused to leave, or came back <span class="pill">needs supplemental</span><small>(§4.2.6, §4.2.7)</small></span></label>
     <label class="check"><input type="checkbox" id="c_spectator"><span>Abusive or disruptive spectators / non-players <span class="pill">describe below</span><small>Including supporters who delayed or stopped play (§4.2.7, §8.3.5)</small></span></label>
     <label class="check"><input type="checkbox" id="c_discrim"><span>Discriminatory language or conduct <span class="pill">needs supplemental</span><small>By anyone – player, staff or spectator (§8.2)</small></span></label>
     <label class="check"><input type="checkbox" id="c_refAbuse"><span>Referee abuse or assault <span class="pill">needs supplemental</span><small>Also send to the State President and State Referee Administrator (§8.1.2)</small></span></label>
-
-    <div class="grp">Protests</div>
     <label class="check"><input type="checkbox" id="c_protest"><span>A team told me it is protesting the match <span class="pill">describe below</span><small>Note which team, when (at the roster check or after the final whistle), and the grounds they gave (§8.6)</small></span></label>
   </div>
   <div style="margin-top:12px"><label for="notes">Notes for the league</label>
-    <textarea id="notes" placeholder="Describe anything ticked above, plus field conditions, delays, etc."></textarea></div>
+    <textarea id="notes" placeholder="Describe anything ticked above, plus delays, field conditions, etc."></textarea></div>
 </section>
 
 <!-- 7. UPLOADS -->
 <section class="card">
-  <h2><span class="n">7</span>Roster sheets</h2>
+  <h2><span class="n">5</span>Roster sheets</h2>
   <p class="hint">Photograph each team's marked-up roster sheet: starters, subs with minutes on and off, goals, and cards. Lay it flat, fill the frame, and make sure the writing is readable.</p>
   <div class="drop" id="drop_home">
     <strong>Home roster sheet <span class="req" style="color:var(--accent)">*</span></strong>
@@ -313,7 +327,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <!-- 8. SUPPLEMENTAL -->
 <section class="card" id="suppCard">
-  <h2><span class="n">8</span>Supplemental report <span id="suppReq" class="pill hidden">required</span></h2>
+  <h2><span class="n">6</span>Supplemental report <span id="suppReq" class="pill hidden">required</span></h2>
   <p class="hint" id="suppHint">Required for any send-off (players and team officials), serious injury, abandoned match, forfeit caused by conduct, discriminatory conduct, or referee abuse. Upload a completed USSF Supplemental Referee Report, or write the statement here.</p>
   <p style="margin:0 0 12px"><button type="button" id="getTemplate" style="width:100%">⬇ Download blank supplemental form (PDF)</button></p>
   <div id="templateMsg"></div>
@@ -331,7 +345,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <!-- 9. REVIEW -->
 <section class="card summary">
-  <h2><span class="n">9</span>Review and submit</h2>
+  <h2><span class="n">7</span>Review and submit</h2>
   <label class="check" style="margin-bottom:10px"><input type="checkbox" id="attest"><span>I confirm this report is accurate and complete to the best of my knowledge.</span></label>
   <div id="problems"></div>
   <details><summary>Preview what the league office receives</summary><pre id="preview"></pre></details>
@@ -341,6 +355,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div id="sendStatus"></div>
 </section>
 
+</div>
 </form>
 </main>
 <footer>Questions: <a id="officeLink" style="color:inherit"></a></footer>
@@ -361,7 +376,7 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-ref-draft-v6";
+const DRAFT_KEY = "apsl-ref-draft-v7";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
 
@@ -398,6 +413,97 @@ const TEMPLATES = {
     <button type="button" class="x" aria-label="Remove">✕</button>`
 };
 const LISTS = { goal: "#goals", card: "#cards", sub: "#subs" };
+
+/* ---------- pre-match checklist & kickoff items (OK / Problem) ---------- */
+const PRE_ITEMS = [
+  { k: "field", r: "Field marking, size & enclosure", t: "Field marked, at least 110 × 65 yards, and enclosed from spectators", s: "§4.1, §4.2.1" },
+  { k: "goals", r: "Goals, nets & corner flags", t: "Goals and nets secured, corner flags in place", s: "§4.2.1" },
+  { k: "balls", r: "At least 6 match balls", t: "At least 6 match balls", s: "§4.2.1" },
+  { k: "benches", r: "Benches, technical areas & referee table", t: "Team benches, marked technical areas, referee table and chair", s: "§4.1" },
+  { k: "physio", r: "Home physio & medical kit", t: "Home team physio and medical kit present", s: "§4.2.1, §8.3.2", extra: "physio" },
+  { k: "water", r: "Water for referees", t: "Water for the referees", s: "§4.2.1" },
+  { k: "fees", r: "Referee fees paid before kickoff", t: "Referee fees paid in full before kickoff", s: "§3.1.4", extra: "fees" },
+  { k: "rosters", r: "Roster forms & ID checks", t: "Both roster forms: league-printed, dated within 48 hours, clear photos, copy to the other team – and IDs checked", s: "§4.2.2" },
+  { k: "kits", r: "Kits, bibs & sub cards", t: "Kits: no clash, matching, captain armbands, APSL sleeve logo; subs in bibs with sub cards", s: "§4.2.3–4.2.5" },
+  { k: "coaches", r: "Coaches present", t: "Each team has a coach present", s: "§4.2.1" },
+];
+const KO_ITEMS = [
+  { k: "ready", r: "Both teams ready (7+ players)", t: "Both teams ready with at least 7 players at kickoff time", s: "More than 15 minutes late is grounds for a forfeit (§4.2.7)", extra: "ready" },
+  { k: "walkout", r: "Pre-match walkout", t: "Pre-match walkout done", s: "Teams and referees line up at center field (§4.2.1)" },
+];
+function itemHTML(it) {
+  let extra = "";
+  if (it.extra === "physio") extra = `<div class="pm-extra">
+      <div><label for="physioHome">Physio's name</label><input id="physioHome" placeholder="Home team physio"></div>
+      <div><label for="physioAway">Away physio <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="physioAway"></div></div>`;
+  let detail;
+  if (it.extra === "fees") detail = `<div class="pm-extra">
+      <div><label for="feeStatus">What happened?</label><select id="feeStatus"><option value="">Select…</option><option>Paid in full, but after kickoff</option><option>Partially paid</option><option>Not paid</option></select></div>
+      <div><label for="paidNote">Details</label><input id="paidNote" placeholder="Amount received, who still owes what"></div></div>`;
+  else if (it.extra === "ready") detail = `<div class="pm-extra">
+      <div><label for="readyTeam">Which team wasn't ready?</label><select id="readyTeam"><option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
+      <div><label for="pmd_ready">Details</label><input id="pmd_ready" placeholder="e.g. 7th player arrived 12 min late"></div></div>`;
+  else detail = `<div class="pm-extra"><div class="full"><input id="pmd_${it.k}" placeholder="What was wrong?"></div></div>`;
+  return `<div class="pm" data-k="${it.k}">
+    <div class="pm-q"><span>${it.t}<small>${it.s}</small></span>
+      <div class="seg"><button type="button" data-v="ok">OK</button><button type="button" data-v="problem">Problem</button></div></div>
+    <input type="hidden" id="pm_${it.k}">${extra}
+    <div class="pm-detail hidden">${detail}</div></div>`;
+}
+$("#preList").innerHTML = PRE_ITEMS.map(itemHTML).join("");
+$("#koList").innerHTML = KO_ITEMS.map(itemHTML).join("");
+function paintItems() {
+  $$(".pm").forEach(el => {
+    const v = $("#pm_" + el.dataset.k).value;
+    el.classList.toggle("is-ok", v === "ok"); el.classList.toggle("is-problem", v === "problem");
+    el.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+    el.querySelector(".pm-detail").classList.toggle("hidden", v !== "problem");
+  });
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".seg button"); if (!b) return;
+  const k = b.closest(".pm").dataset.k;
+  $("#pm_" + k).value = b.dataset.v; paintItems(); refresh();
+  if (b.dataset.v === "problem") b.closest(".pm").querySelector(".pm-detail input, .pm-detail select")?.focus();
+});
+const pmVal = k => val("pm_" + k);
+function feesText() {
+  if (pmVal("fees") === "ok") return "Paid in full before kickoff";
+  if (pmVal("fees") === "problem") return (val("feeStatus") || "Problem") + (val("paidNote") ? " – " + val("paidNote") : "");
+  return "";
+}
+function itemDetail(it) {
+  if (it.extra === "fees") return feesText();
+  if (it.extra === "ready") return (val("readyTeam") ? (val("readyTeam") === "both" ? "Both teams" : teamName(val("readyTeam"))) + " not ready" : "") + (val("pmd_ready") ? " – " + val("pmd_ready") : "");
+  return val("pmd_" + it.k);
+}
+function itemErrors(items, markBad) {
+  const out = [];
+  items.forEach(it => {
+    const v = pmVal(it.k), box = $(`.pm[data-k="${it.k}"]`);
+    if (!v) { box.classList.add("invalid"); out.push(`Checklist: answer “${it.r}”`); return; }
+    if (v === "problem") {
+      if (it.extra === "fees") { if (!val("feeStatus")) markBad("feeStatus", out, "Referee fees: pick what happened"); if (!val("paidNote")) markBad("paidNote", out, "Referee fees: add payment details (§3.1.4)"); }
+      else if (it.extra === "ready") { if (!val("readyTeam")) markBad("readyTeam", out, "Kickoff: pick which team wasn't ready"); }
+      else if (val("pmd_" + it.k).length < 3) markBad("pmd_" + it.k, out, `Checklist: describe the problem with “${it.r}”`);
+    }
+    if (it.extra === "physio" && v === "ok" && !val("physioHome")) markBad("physioHome", out, "Enter the home team physio's name");
+  });
+  return out;
+}
+const markBad = (id, list, msg) => { document.getElementById(id)?.classList.add("invalid"); list.push(msg); };
+
+/* ---------- step 1: match, crew, checklist ---------- */
+function step1Errors() {
+  const errs = [];
+  const required = { division: "Conference", gameDate: "Game date", kickoff: "Scheduled kickoff",
+    home: "Home team", away: "Away team", refName: "Your name", refPhone: "Phone", refEmail: "Email" };
+  for (const [id, label] of Object.entries(required)) if (!val(id)) { markBad(id, errs, `${label} is missing`); document.getElementById(id + "Other")?.classList.add("invalid"); }
+  if (val("refEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("refEmail"))) markBad("refEmail", errs, "Email looks invalid");
+  if (val("home") && val("home").toLowerCase() === val("away").toLowerCase()) markBad("away", errs, "Home and away team are the same");
+  if (val("pmSkipped") !== "1") errs.push(...itemErrors(PRE_ITEMS, markBad));
+  return errs;
+}
 // Cautions: IFAB Law 12. Send-offs: APSL Handbook §8.1.2 categories (they set the suspension length).
 const YELLOW_REASONS = ["Unsporting behavior", "Dissent by word or action", "Persistent offenses", "Delaying the restart of play",
   "Not respecting the distance at a restart", "Entering or re-entering without permission", "Leaving the field without permission"];
@@ -517,14 +623,13 @@ function validate() {
   $$(".invalid").forEach(el => el.classList.remove("invalid"));
   const bad = (id, msg) => { document.getElementById(id)?.classList.add("invalid"); errors.push(msg); };
 
-  const required = { division: "Conference", gameDate: "Game date", kickoff: "Scheduled kickoff",
-    home: "Home team", away: "Away team", refName: "Your name", refPhone: "Phone", refEmail: "Email", paid: "Referee fee status" };
-  for (const [id, label] of Object.entries(required)) if (!val(id)) { bad(id, `${label} is missing`); document.getElementById(id + "Other")?.classList.add("invalid"); }
-  if (val("refEmail") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("refEmail"))) bad("refEmail", "Email looks invalid");
-  if (val("home") && val("home").toLowerCase() === val("away").toLowerCase()) bad("away", "Home and away team are the same");
+  const s1 = step1Errors();
+  if (s1.length) errors.push("Step 1 isn't finished: " + s1.slice(0, 3).join("; ") + (s1.length > 3 ? ` (+${s1.length - 3} more)` : "") + " – tap “Before kickoff” at the top");
+  if (val("pmSkipped") === "1" && ["Completed", "Abandoned"].includes(val("status"))) errors.push("The match was played, so the pre-match checklist is needed – tap “Before kickoff” at the top");
   if (val("refId") && val("refId").replace(/\D/g, "").length < 8) warns.push("USSF ID looks short – double-check it, or leave it blank");
 
   const played = val("status") === "Completed" || val("status") === "Abandoned";
+  if (played) errors.push(...itemErrors(KO_ITEMS, (id, list, msg) => { document.getElementById(id)?.classList.add("invalid"); list.push(msg); }));
   if (val("status") === "Abandoned") {
     if (!minuteOk(val("abandonMin"))) bad("abandonMin", "Enter the minute the match was stopped");
     if (!val("abandonReason")) bad("abandonReason", "Pick why the match was abandoned");
@@ -538,15 +643,12 @@ function validate() {
   if (val("kickoff") && val("actualKO") && val("status") === "Completed") {
     const [h1, m1] = val("kickoff").split(":").map(Number), [h2, m2] = val("actualKO").split(":").map(Number);
     const late = (h2 * 60 + m2) - (h1 * 60 + m1);
-    if (late > 15 && !chk("c_lateHome") && !chk("c_lateAway") && !val("notes")) warns.push(`Kickoff was ${late} minutes late – tick which team delayed it, or explain in the notes (more than 15 minutes is grounds for a forfeit, §4.2.7)`);
+    if (late > 15 && pmVal("ready") !== "problem" && !val("notes")) warns.push(`Kickoff was ${late} minutes late – mark which team wasn't ready, or explain in the notes (more than 15 minutes is grounds for a forfeit, §4.2.7)`);
   }
-  // fees (§3.1.4)
-  if (val("paid") && !val("paid").startsWith("Yes – in full, before") && !val("paidNote")) bad("paidNote", "Add payment details – unpaid or late referee fees can lead to a forfeit (§3.1.4)");
   // items that need a description
   const needNotes = [["c_eligibility", "possible ineligible player"], ["c_bench", "unauthorized people at the bench"], ["c_spectator", "spectator conduct"], ["c_protest", "the protest"]]
     .filter(([id]) => chk(id)).map(([, t]) => t);
   if (needNotes.length && val("notes").length < 15) bad("notes", "Describe " + needNotes.join(", ") + " in the notes box");
-  if (chk("c_ground") && !$$("[data-ground]:checked").length) errors.push("Tick which field or match day standards were not met");
   if (played) {
     if (val("homeScore") === "") bad("homeScore", "Home score is missing");
     if (val("awayScore") === "") bad("awayScore", "Away score is missing");
@@ -626,8 +728,6 @@ function validate() {
   if (reasons.length && !hasSupp) { bad("suppText", "Supplemental report needed for: " + reasons.join(", ")); }
 
   // physio consistency
-  if (played && !val("physioHome") && !chk("c_noPhysio")) bad("physioHome", "Enter the physio's name, or tick “Home team had no physio”");
-  if (val("physioHome") && chk("c_noPhysio")) warns.push("You entered a physio name but also ticked “Home team had no physio”");
 
   if (!chk("attest")) errors.push("Tick the confirmation box");
   return { errors, warns, reasons };
@@ -653,6 +753,20 @@ function statusText() {
 }
 
 /* ---------- report text ---------- */
+function itemLine(it) {
+  const v = pmVal(it.k), label = it.r;
+  if (v === "ok") return `  ✓ ${label}`;
+  if (v === "problem") return `  ✗ PROBLEM – ${label}: ${itemDetail(it) || "no details"} (${it.s.replace(/^.*\((§[^)]*)\).*$/, "$1")})`;
+  return `  – ${label}: not answered`;
+}
+const fmtTime = iso => iso ? new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+function koDate() { return val("gameDate") && val("kickoff") ? new Date(val("gameDate") + "T" + val("kickoff")) : null; }
+function checklistHeading() {
+  const at = val("pmClientAt"); if (!at) return "PRE-MATCH CHECKLIST";
+  const ko = koDate(), mins = ko ? Math.round((ko - new Date(at)) / 60000) : null;
+  const rel = mins == null ? "" : mins >= 0 ? ` – ${mins} min before scheduled kickoff` : ` – ${-mins} min AFTER scheduled kickoff`;
+  return `PRE-MATCH CHECKLIST (completed ${fmtTime(at)}${rel})`;
+}
 function buildReport() {
   const L = [], H = val("home") || "Home", A = val("away") || "Away";
   const line = (k, v) => v && L.push(`${k}: ${v}`);
@@ -670,18 +784,17 @@ function buildReport() {
   L.push(``, `CREW`);
   line("Submitted by", `${val("refName")} (${val("refRole")}) · USSF ${val("refId")} · ${val("refPhone")} · ${val("refEmail")}`);
   line("AR1", val("ar1")); line("AR2", val("ar2")); line("4th", val("fourth"));
-  line("Referee fees", val("paid") + (val("paidNote") ? " – " + val("paidNote") : ""));
-  L.push(``, `MATCH DAY`);
-  line(`Physio (home)`, val("physioHome") || "NONE"); line(`Physio (away)`, val("physioAway"));
-  const ground = $$("[data-ground]:checked").map(x => x.dataset.ground);
-  const flags = [["c_lateHome", `${H} delayed kickoff (§4.2.7)`], ["c_lateAway", `${A} delayed kickoff (§4.2.7)`], ["c_walkout", "No walkout (§4.2.1)"],
-    ["c_noPhysio", "HOME TEAM HAD NO PHYSIO (§8.3.2)"], ["c_ground", `Ground/match day standards not met: ${ground.join(", ")} (§8.3.3)`],
-    ["c_roster", "Roster form problem (§4.2.2)"], ["c_eligibility", "POSSIBLE INELIGIBLE PLAYER (§8.3.4)"],
-    ["c_kit", "Uniform problem (§4.2.3)"], ["c_bibs", "Subs without bibs / no sub cards (§4.2.5)"], ["c_bench", "Unauthorized people at bench/field (§4.1)"],
-    ["c_noCoach", "Team without a coach (§4.2.1)"], ["c_injury", "Serious injury"], ["c_refusedLeave", "SENT-OFF PERSON REFUSED TO LEAVE"],
+  L.push(``, checklistHeading());
+  if (val("pmSkipped") === "1") L.push(`  Skipped – referee reported the match did not take place as scheduled`);
+  else PRE_ITEMS.forEach(it => L.push(itemLine(it)));
+  line(`  Physio (home)`, val("physioHome") || "NONE"); line(`  Physio (away)`, val("physioAway"));
+  L.push(``, `KICKOFF`);
+  KO_ITEMS.forEach(it => L.push(itemLine(it)));
+  const flags = [["c_eligibility", "POSSIBLE INELIGIBLE PLAYER (§8.3.4)"], ["c_bench", "Unauthorized people at bench/field (§4.1)"],
+    ["c_injury", "Serious injury"], ["c_refusedLeave", "SENT-OFF PERSON REFUSED TO LEAVE"],
     ["c_spectator", "Spectator/non-player misconduct (§8.3.5)"], ["c_discrim", "DISCRIMINATORY CONDUCT (§8.2)"],
     ["c_refAbuse", "REFEREE ABUSE/ASSAULT"], ["c_protest", "PROTEST LODGED (§8.6)"]].filter(([id]) => chk(id)).map(([, t]) => t);
-  L.push(`  Flags: ${flags.length ? "" : "none"}`); flags.forEach(f => L.push(`   • ${f}`));
+  L.push(``, `INCIDENTS: ${flags.length ? "" : "none"}`); flags.forEach(f => L.push(`   • ${f}`));
   if (val("notes")) L.push(``, `NOTES`, val("notes"));
   if (val("suppText")) L.push(``, `SUPPLEMENTAL STATEMENT`, val("suppText"));
   const att = [["Home roster", files.home], ["Away roster", files.away], ["Supplemental", files.supp]].filter(([, a]) => a.length)
@@ -697,8 +810,7 @@ function refresh() {
   $("#budgetText").textContent = `${mb(tb)} of ${CONFIG.totalUploadMB} MB used`;
   $("#budgetBar").style.width = Math.min(100, tb / cap * 100) + "%";
   $("#budgetBar").style.background = tb > cap ? "var(--accent)" : "var(--ok)";
-  $("#paidNoteWrap").classList.toggle("hidden", !val("paid") || val("paid").startsWith("Yes – in full, before"));
-  $("#groundList").classList.toggle("hidden", !chk("c_ground"));
+  paintMatchBar();
   $("#abandonWrap").classList.toggle("hidden", val("status") !== "Abandoned");
   $("#forfeitWrap").classList.toggle("hidden", val("status") !== "Forfeit");
   $("#abandonTeamWrap").classList.toggle("hidden", !CONDUCT_ABANDON.includes(val("abandonReason")));
@@ -767,11 +879,103 @@ function startForm(setup) {
   let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
   if (d && d.f) ["home", "away"].forEach(id => { if (d.f[id] != null) { $("#" + id).value = d.f[id]; toggleOther(id); } });   // …then restore teams
   $("#home").dispatchEvent(new Event("change"));
-  refresh();
+  paintItems();
+  resumeFromLink(resumed => {
+    showStep(resumed ? 2 : (val("step") || 1));
+    if (!resumed && val("pmClientAt") && !val("pmSavedAt") && val("pmSkipped") !== "1") savePrematch(true);   // sync a phone-only save
+  });
 }
 if (window.google && google.script && google.script.run) {
   google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
 } else startForm(null);
+
+/* ---------- steps ---------- */
+function showStep(n) {
+  n = String(n) === "2" ? "2" : "1";
+  $("#step").value = n;
+  $("#step1").classList.toggle("hidden", n !== "1"); $("#step2").classList.toggle("hidden", n !== "2");
+  $("#tab1").classList.toggle("on", n === "1"); $("#tab2").classList.toggle("on", n === "2");
+  $("#tab1").classList.toggle("done", !!(val("pmClientAt") || val("pmSkipped") === "1"));
+  scrollTo(0, 0); refresh();
+}
+function paintMatchBar() {
+  const H = val("home") || "Home", A = val("away") || "Away";
+  $("#mbTeams").textContent = `${H} v ${A}`;
+  const d = koDate();
+  const when = d ? d.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const saved = val("pmSkipped") === "1" ? "checklist skipped" : val("pmSavedAt") ? `checklist saved ${fmtTime(val("pmSavedAt"))}` :
+    val("pmClientAt") ? "checklist saved on this phone only" : "checklist not done";
+  $("#mbInfo").textContent = [when, saved].filter(Boolean).join(" · ");
+}
+$("#tab1").addEventListener("click", () => showStep(1));
+$("#tab2").addEventListener("click", () => { if (val("pmClientAt") || val("pmSkipped") === "1") showStep(2); else $("#saveStep1").click(); });
+$("#editStep1").addEventListener("click", () => showStep(1));
+$("#skipStep1").addEventListener("click", e => { e.preventDefault(); $("#pmSkipped").value = "1"; if (val("status") === "Completed") $("#status").value = "Not played"; showStep(2); });
+
+function prematchState() {
+  const f = {};
+  FIELD_IDS().filter(el => $("#step1").contains(el)).forEach(el => f[el.id] = el.type === "checkbox" ? el.checked : el.value);
+  return f;
+}
+function savePrematch(quiet) {
+  const run = window.google && google.script && google.script.run;
+  if (!run) return Promise.resolve(null);
+  const payload = { id: val("pmId"), clientAt: val("pmClientAt"), kickoffMs: koDate() ? koDate().getTime() : null,
+    summary: { division: val("division"), home: val("home"), away: val("away"), gameDate: val("gameDate"), kickoff: val("kickoff"),
+      refName: val("refName"), refEmail: val("refEmail"),
+      problems: PRE_ITEMS.filter(it => pmVal(it.k) === "problem").map(it => it.r + (itemDetail(it) ? ": " + itemDetail(it) : "")).join(" | ") },
+    state: prematchState() };
+  return new Promise(res => google.script.run.withSuccessHandler(r => {
+    if (r && r.ok) { $("#pmId").value = r.id; $("#pmSavedAt").value = r.savedAt; saveDraft(); refresh(); }
+    res(r);
+  }).withFailureHandler(() => res(null)).savePrematch(JSON.stringify(payload)));
+}
+$("#saveStep1").addEventListener("click", async () => {
+  $$(".invalid").forEach(el => el.classList.remove("invalid"));
+  $("#pmSkipped").value = "";
+  const errs = step1Errors(), msg = $("#saveMsg");
+  if (errs.length) { msg.innerHTML = `<div class="notice err"><strong>Finish these first:</strong><ul>${errs.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>`; msg.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  msg.innerHTML = "";
+  if (!val("pmClientAt")) $("#pmClientAt").value = new Date().toISOString();
+  try { localStorage.setItem("apsl-ref-me", JSON.stringify({ refName: val("refName"), refId: val("refId"), refPhone: val("refPhone"), refEmail: val("refEmail") })); } catch (e) {}
+  const btn = $("#saveStep1"); btn.disabled = true; btn.textContent = "Saving…";
+  const first = !val("pmId");
+  const r = await savePrematch();
+  btn.disabled = false; btn.textContent = "Save checklist & continue";
+  showStep(2);
+  $("#problems").innerHTML = "";
+  const note = $("#stepNote");
+  note.innerHTML = r && r.ok
+    ? `<div class="notice ok"><strong>Checklist saved.</strong> ${first ? `We emailed <b>${esc(val("refEmail"))}</b> a link to finish this report after the match – it works on any phone or computer.` : "Your changes are saved."}</div>`
+    : `<div class="notice warn"><strong>Saved on this phone only</strong> – no connection to the league right now. Finish the report on this phone, or reopen this page when you have signal so it can sync.</div>`;
+});
+// retry a phone-only save when the connection comes back
+window.addEventListener("online", () => { if (val("pmClientAt") && !val("pmSavedAt") && val("pmSkipped") !== "1") savePrematch(true); });
+
+function applyState(f) {
+  if (f.division != null) { $("#division").value = f.division; fillTeams(); }
+  Object.entries(f).forEach(([id, v]) => { const el = document.getElementById(id); if (!el) return; el.type === "checkbox" ? el.checked = v : el.value = v; });
+  ["home", "away"].forEach(toggleOther); paintItems();
+  $("#home").dispatchEvent(new Event("change"));
+}
+function resumeFromLink(done) {
+  if (!(window.google && google.script && google.script.url)) return done(false);
+  google.script.url.getLocation(loc => {
+    const id = loc && loc.parameter && loc.parameter.r;
+    if (!id) return done(false);
+    google.script.run.withFailureHandler(() => done(false)).withSuccessHandler(r => {
+      if (!r || !r.ok) { $("#stepNote").innerHTML = `<div class="notice warn">That report link wasn't found. Start a new report below.</div>`; return done(false); }
+      if (r.submitted) { $("#stepNote").innerHTML = `<div class="notice ok">The report for this match was already submitted on ${esc(fmtTime(r.submitted))}. Thanks!</div>`; return done(false); }
+      if (val("pmId") !== id) {      // a different match was in progress on this phone – start clean
+        $$("#goals .row,#cards .row,#subs .row").forEach(x => x.remove());
+        FIELD_IDS().filter(el => $("#step2").contains(el)).forEach(el => el.type === "checkbox" ? el.checked = false : (el.tagName === "SELECT" ? el.selectedIndex = 0 : el.value = ""));
+      }
+      applyState(r.state); $("#pmId").value = id; $("#pmSavedAt").value = r.savedAt; $("#pmClientAt").value = r.clientAt || r.savedAt; $("#pmSkipped").value = "";
+      $("#stepNote").innerHTML = `<div class="notice ok">Welcome back – your pre-match checklist is loaded. Fill in the match below.</div>`;
+      done(true);
+    }).loadPrematch(id);
+  });
+}
 
 /* ---------- blank supplemental template ---------- */
 $("#getTemplate").addEventListener("click", () => {
@@ -822,7 +1026,7 @@ async function send(warns) {
     const fields = {};
     ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
     fields.status = statusText();
-    const payload = { fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
+    const payload = { prematchId: val("pmId"), fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
     let j;
     if (window.google && google.script && google.script.run) {        // served by Apps Script
       j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(new Error(e && e.message || "Upload failed – check your connection."))).submitReport(JSON.stringify(payload)));
@@ -834,6 +1038,7 @@ async function send(warns) {
     if (!j.ok) throw new Error(j.error || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
     $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
+    if (j.appUrl) $("#doneView button").outerHTML = `<a href="${esc(j.appUrl)}" target="_top" style="display:inline-block;padding:10px 14px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none">Start another match</a>`;
   } catch (err) {
     btn.disabled = false; btn.textContent = "Submit report";
     status.innerHTML = `<div class="notice err"><strong>Not sent.</strong> ${esc(err.message || err)}<br>Your entries are saved on this device – try again, or email the roster photos to <a href="mailto:${CONFIG.officeEmail}">${CONFIG.officeEmail}</a>.</div>`;
