@@ -30,7 +30,8 @@ const CONFIG = {
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('APSL Referee Report')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);   // lets the league website embed the form
 }
 
 // Conferences and their clubs, as of Fall 2026. Used to seed the Clubs tab of the settings sheet;
