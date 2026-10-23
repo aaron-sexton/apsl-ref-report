@@ -148,6 +148,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 .seg button.on[data-v="no"]{background:var(--accent);color:#fff}
 .seg button.on[data-v="unsure"]{background:var(--muted);color:#fff}
 .pm.is-unsure{border-color:var(--muted)}
+.row.cgoal{grid-template-columns:.6fr 1.4fr .6fr 1.4fr .6fr 1fr auto}
+@media (max-width:640px){.row.cgoal{grid-template-columns:.7fr 1.3fr}.row.cgoal .x{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -191,7 +193,25 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 </section>
 
 <section class="card">
-  <h2><span class="n">2</span>Your details</h2>
+  <h2><span class="n">2</span>Result &amp; goals</h2>
+  <div class="grid">
+    <div class="full"><label for="status">Match status <span class="req">*</span></label>
+      <select id="status"><option value="Completed">Completed</option><option value="Abandoned">Abandoned (stopped and not finished)</option>
+        <option value="Forfeit">Forfeit</option><option value="Not played">Not played – postponed or cancelled</option></select></div>
+  </div>
+  <div id="resultWrap">
+    <div class="grid" style="margin-top:12px">
+      <div><label for="homeScore"><span id="homeLbl">Home</span> goals <span class="req">*</span></label><input id="homeScore" type="number" min="0" max="40" inputmode="numeric"></div>
+      <div><label for="awayScore"><span id="awayLbl">Away</span> goals <span class="req">*</span></label><input id="awayScore" type="number" min="0" max="40" inputmode="numeric"></div>
+    </div>
+    <p class="hint" id="goalHint" style="margin:14px 0 8px">Add one row for each goal your club scored, with the scorer and the assist.</p>
+    <div id="goals" class="row-list"></div>
+    <button type="button" class="add" id="addGoal">+ Add goal</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2><span class="n">3</span>Your details</h2>
   <div class="grid">
     <div><label for="subName">Your name <span class="req">*</span></label><input id="subName" required autocomplete="name"></div>
     <div><label for="subEmail">Email <span class="req">*</span></label><input id="subEmail" type="email" required autocomplete="email"></div>
@@ -200,19 +220,19 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 </section>
 
 <section class="card">
-  <h2><span class="n">3</span>Match day checks</h2>
+  <h2><span class="n">4</span>Match day checks</h2>
   <p class="hint">Answer for this match. If you pick <b>No</b>, add a few words if you can. Section numbers refer to the APSL Regulations &amp; Club Manual.</p>
   <div id="checkList" class="pm-list"></div>
 </section>
 
 <section class="card">
-  <h2><span class="n">4</span>Comments</h2>
+  <h2><span class="n">5</span>Comments</h2>
   <label for="comments">Anything else about the match? <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
   <textarea id="comments" placeholder="Feedback on the referees, the opponent, the venue, or anything not covered above. Please be factual and specific."></textarea>
 </section>
 
 <section class="card summary">
-  <h2><span class="n">5</span>Submit</h2>
+  <h2><span class="n">6</span>Submit</h2>
   <label class="check" style="margin-bottom:10px"><input type="checkbox" id="attest"><span>I verify that all information submitted in this form is accurate and understand that any falsified submission could result in fines and / or penalties for my club.</span></label>
   <div id="problems"></div>
   <details><summary>Preview what the league receives</summary><pre id="preview"></pre></details>
@@ -233,7 +253,7 @@ const CONFIG = { officeEmail: "office@apslsoccer.com" };
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const DRAFT_KEY = "apsl-club-draft-v1";
+const DRAFT_KEY = "apsl-club-draft-v2";
 const OTHER = "__other";
 $("#officeLink").textContent = CONFIG.officeEmail;
 $("#officeLink").href = "mailto:" + CONFIG.officeEmail;
@@ -283,6 +303,38 @@ document.addEventListener("click", e => {
 });
 const answer = k => { const v = val("q_" + k); return v ? ANSWERS.find(a => a[0] === v)[1] : ""; };
 
+/* ---------- result: your club's goals + assists ---------- */
+const GOAL_FIELDS = ["sNum", "sName", "aNum", "aName", "min", "type"];
+function goalRow(d = {}) {
+  const div = document.createElement("div");
+  div.className = "row cgoal";
+  div.innerHTML = `
+    <div><label>Scorer # <span class="req">*</span></label><input class="sNum" inputmode="numeric"></div>
+    <div><label>Scorer name <span class="req">*</span></label><input class="sName" autocapitalize="words"></div>
+    <div><label>Assist #</label><input class="aNum" inputmode="numeric"></div>
+    <div><label>Assist name</label><input class="aName" placeholder="Blank = no assist" autocapitalize="words"></div>
+    <div><label>Min</label><input class="min" inputmode="numeric" placeholder="optional"></div>
+    <div><label>Type</label><select class="type"><option>Goal</option><option>Penalty</option><option>Own goal (by opponent)</option></select></div>
+    <button type="button" class="x" aria-label="Remove">✕</button>`;
+  GOAL_FIELDS.forEach(f => { if (d[f] != null) div.querySelector("." + f).value = d[f]; });
+  $("#goals").appendChild(div);
+  return div;
+}
+const goalRows = () => $$("#goals .row").map(r => Object.fromEntries(GOAL_FIELDS.map(f => [f, r.querySelector("." + f).value.trim()])));
+$("#addGoal").addEventListener("click", () => { goalRow().querySelector("input").focus(); refresh(); });
+document.addEventListener("click", e => { if (e.target.matches("#goals .x")) { e.target.closest(".row").remove(); refresh(); } });
+const isOG = g => g.type.startsWith("Own goal");
+const played = () => ["Completed", "Abandoned", "Forfeit"].includes(val("status"));
+const ownScoreId = () => val("side") === "home" ? "homeScore" : val("side") === "away" ? "awayScore" : "";
+function paintResult() {
+  $("#resultWrap").classList.toggle("hidden", !played());
+  $("#homeLbl").textContent = home() || "Home"; $("#awayLbl").textContent = away() || "Away";
+  const own = ownScoreId() ? val(ownScoreId()) : "";
+  $("#goalHint").textContent = own !== "" && val("club")
+    ? `Add ${+own === 1 ? "the 1 goal" : "all " + own + " goals"} ${val("club")} scored, with the scorer and the assist.`
+    : "Add one row for each goal your club scored, with the scorer and the assist.";
+}
+
 /* ---------- conferences and clubs ---------- */
 const DEFAULT_SETUP = { conferences: [
   ["Constitution Conference (Connecticut)", "Caribbean FCA|Glastonbury Celtic|Hermandad Connecticut|KO Elites|Southwest FC|United Holyoke FC"],
@@ -324,6 +376,21 @@ function validate() {
     else if (days < -1) bad("gameDate", "The match date is in the future");
     else if (days > 30) warns.push(`This match was ${Math.round(days)} days ago – double-check the date`);
   }
+  if (played()) {
+    ["homeScore", "awayScore"].forEach(id => { if (val(id) === "" || +val(id) < 0) bad(id, `${id === "homeScore" ? (home() || "Home") : (away() || "Away")} goals is missing`); });
+    const goals = goalRows();
+    $$("#goals .row").forEach((r, i) => {
+      const g = goals[i], og = isOG(g);
+      if (!og && !g.sNum) r.querySelector(".sNum").classList.add("invalid");
+      if (!og && !g.sName) r.querySelector(".sName").classList.add("invalid");
+      if (g.min && !/^\d{1,3}(\+\d{1,2})?$/.test(g.min)) r.querySelector(".min").classList.add("invalid");
+      if (!og && (!g.sNum || !g.sName)) errors.push(`Goal ${i + 1}: scorer number and name are needed`);
+      if (g.min && !/^\d{1,3}(\+\d{1,2})?$/.test(g.min)) errors.push(`Goal ${i + 1}: minute should be a number like 63 or 45+2`);
+      if ((g.aNum || g.aName) && (g.aNum === g.sNum && g.aName.toLowerCase() === g.sName.toLowerCase())) errors.push(`Goal ${i + 1}: the scorer can't assist their own goal`);
+    });
+    if (ownScoreId() && val(ownScoreId()) !== "" && goals.length !== +val(ownScoreId()))
+      errors.push(`You listed ${goals.length} goal${goals.length === 1 ? "" : "s"} but ${val("club") || "your club"} scored ${val(ownScoreId())} – add one row per goal`);
+  }
   CHECKS.forEach(c => { if (!val("q_" + c.k)) { $(`.pm[data-k="${c.k}"]`).classList.add("invalid"); errors.push(`Answer “${c.r}”`); } });
   if (!chk("attest")) errors.push("Tick the verification box");
   return { errors, warns };
@@ -338,6 +405,14 @@ function buildReport() {
   L.push(`Match: ${home() || "?"} v ${away() || "?"} (${val("gameDate") || "date?"})`);
   L.push(`Conference: ${val("division")}`);
   L.push(`Submitted by: ${val("subName")} for ${val("club") || "?"} (${val("side") || "?"}) · ${val("subEmail")}`, "");
+  if (played()) {
+    L.push(`RESULT: ${home() || "Home"} ${val("homeScore") || "?"} – ${val("awayScore") || "?"} ${away() || "Away"}${val("status") !== "Completed" ? " (" + val("status") + ")" : ""}`);
+    const goals = goalRows();
+    L.push(`${(val("club") || "OUR CLUB").toUpperCase()} GOALS: ${goals.length ? "" : "none"}`);
+    goals.forEach(g => L.push(isOG(g) ? `  ${g.min ? g.min + "'  " : ""}Own goal by opponent${g.sName ? " (" + (g.sNum ? "#" + g.sNum + " " : "") + g.sName + ")" : ""}`
+      : `  ${g.min ? g.min + "'  " : ""}#${g.sNum} ${g.sName}${g.type === "Penalty" ? " (pen)" : ""} – assist: ${g.aName || g.aNum ? (g.aNum ? "#" + g.aNum + " " : "") + g.aName : "none"}`));
+  } else L.push(`RESULT: ${val("status")}`);
+  L.push("");
   L.push("MATCH DAY CHECKS");
   CHECKS.forEach(c => L.push(`  ${(answer(c.k) || "–").padEnd(6)} ${c.r}${val("q_" + c.k) === "no" && val("n_" + c.k) ? " – " + val("n_" + c.k) : ""}`));
   if (val("comments")) L.push("", "COMMENTS", val("comments"));
@@ -346,12 +421,13 @@ function buildReport() {
 
 /* ---------- refresh, drafts ---------- */
 let saveT;
-function refresh() { $("#preview").textContent = buildReport(); clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
+function refresh() { paintResult(); $("#preview").textContent = buildReport(); clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
 document.addEventListener("input", refresh);
 document.addEventListener("change", refresh);
 const FIELDS = () => $$("#f input[id],#f select[id],#f textarea[id]");
 function saveDraft() {
   const d = {}; FIELDS().forEach(el => d[el.id] = el.type === "checkbox" ? el.checked : el.value); delete d.attest;
+  d.__goals = goalRows();
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {}
 }
 function loadDraft() {
@@ -361,6 +437,7 @@ function loadDraft() {
   if (d.division != null) { $("#division").value = d.division; fillClubs(); }
   FIELDS().forEach(el => { if (d[el.id] != null) el.type === "checkbox" ? el.checked = d[el.id] : el.value = d[el.id]; });
   ["club", "opponent"].forEach(toggleOther);
+  (d.__goals || []).forEach(g => goalRow(g));
 }
 function startForm(setup) {
   if (setup && setup.conferences && setup.conferences.length) SETUP = setup;
@@ -391,7 +468,8 @@ async function send(warns) {
     const answers = {}, notes = {};
     CHECKS.forEach(c => { answers[c.k] = answer(c.k); notes[c.k] = val("n_" + c.k); });
     const payload = { division: val("division"), gameDate: val("gameDate"), side: val("side"), club: val("club"), opponent: val("opponent"),
-      home: home(), away: away(), name: val("subName"), email: val("subEmail"), answers, notes, comments: val("comments"),
+      home: home(), away: away(), status: val("status"), homeScore: played() ? val("homeScore") : "", awayScore: played() ? val("awayScore") : "",
+      goals: played() ? goalRows() : [], name: val("subName"), email: val("subEmail"), answers, notes, comments: val("comments"),
       report: buildReport(), warnings: warns.join(" | "), website: val("website") };
     if (!(window.google && google.script && google.script.run)) throw new Error("This page isn't connected to the league's server.");
     const j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res)
@@ -408,6 +486,7 @@ $("#startAnother").addEventListener("click", () => {
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   const keep = ["division", "club", "clubOther", "subName", "subEmail"];
   FIELDS().filter(el => !keep.includes(el.id)).forEach(el => { if (el.type === "checkbox") el.checked = false; else if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+  $$("#goals .row").forEach(r => r.remove()); $("#status").value = "Completed";
   toggleOther("opponent"); paintChecks();
   const btn = $("#submitBtn"); btn.disabled = false; btn.textContent = "Submit report";
   $("#problems").innerHTML = ""; $("#sendStatus").innerHTML = "";

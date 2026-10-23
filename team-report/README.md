@@ -9,14 +9,18 @@ A short compliance check each club files after every match. It asks the same que
 - Questions say **whose** job it is (e.g. "Home team had a physio") and cite the handbook section.
 - The club says whether it was **home or away**, so each report knows the home team.
 
-Clubs do **not** report scores, scorers, cards, subs or photos – that stays with the referee.
+Clubs also report the **final score** and **their own goals with assists** (scorer # and name required; assist
+optional; minute optional; penalty or opponent own goal). The number of goals listed must match the club's score.
+Cards, subs and photos stay with the referee.
 
 ## What happens on submit
 
 1. A row is added to the **Club Post-Match Reports** sheet – same column order and headers as the old form's
-   response sheet, plus Home/Away, Submitted by and Other club.
-2. If the other club has already reported the same match, the answers are compared. Disagreements on the
-   home-team items, the walkout, or each other's sub cards & roster put **[CLUBS DISAGREE]** in the subject.
+   response sheet, then Home/Away, Submitted by, Cross-check, Match status, Home score, Away score and
+   Goals & assists.
+2. The final score is compared with the referee's report (Referee Reports Log, set in `REF_LOG_SHEET_ID`) and the
+   other club's report – a difference puts **[SCORE MISMATCH]** in the subject. If the other club has reported,
+   the match-day checks are compared too; disagreements put **[CLUBS DISAGREE]** in the subject.
    "Unsure" never counts as a disagreement.
 3. The office gets the report, copied to the **conference commissioner** (column D of the Assignors tab).
    Every "No" is listed in the subject, e.g. `[No: Physio, Balls]`. Referee assignors are never copied.

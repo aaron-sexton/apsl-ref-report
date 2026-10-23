@@ -6,7 +6,8 @@
  *
  * Each submission:
  *   1. Adds a row to the "Club Post-Match Reports" sheet (same column order as the old form's responses)
- *   2. Compares it with the other club's report for the same match and notes any disagreements
+ *   2. Compares it with the other club's report for the same match (checks + final score) and with the
+ *      referee's report in the Referee Reports Log (final score), and notes any disagreements
  *   3. Emails the league office, copying the conference commissioner (not the referee assignor)
  *   4. Emails the submitter a copy
  *
@@ -22,6 +23,8 @@ const CONFIG = {
   // Optional: the referee system's "Referee Report Settings" sheet ID, so both forms share one Clubs list
   // and one commissioner list (Assignors tab, column D). Leave '' to create a separate settings sheet.
   SETTINGS_SHEET_ID: '',
+  // The referee system's "Referee Reports Log" – used to cross-check the final score. Leave '' to skip.
+  REF_LOG_SHEET_ID: '1mPYPz7ed7K1qHDAjkNWe4mDNpLeT1cVOBH3eAs1el34',
 };
 
 // Question keys and labels – must match CHECKS in Index.html. The label is the log's column header.
@@ -80,15 +83,17 @@ function submitClubReport(payloadJson) {
       check = compareWithOtherClub(d);
       const ans = k => a[k] + (a[k] === 'No' && notes[k] ? ` – ${notes[k]}` : '');
       logRow([new Date(), d.email, d.division, d.gameDate, d.club, d.opponent, ...CHECKS.map(([k]) => ans(k)),
-        d.comments || '', 'I agree', d.side === 'home' ? 'Home' : 'Away', d.name, check.summary]);
+        d.comments || '', 'I agree', d.side === 'home' ? 'Home' : 'Away', d.name, check.summary,
+        d.status || 'Completed', d.homeScore, d.awayScore, goalsText(d.goals)]);
     } finally { lock.releaseLock(); }
 
     const nos = CHECKS.filter(([k]) => a[k] === 'No').map(([k]) => shortLabel(k));
-    const tags = [nos.length ? `No: ${nos.join(', ')}` : '', check.disagree ? 'CLUBS DISAGREE' : ''].filter(Boolean);
-    const subject = `Club Report – ${d.club} – ${d.home} v ${d.away} (${d.gameDate})` + (tags.length ? ` [${tags.join('] [')}]` : '');
+    const tags = [check.scoreMismatch ? 'SCORE MISMATCH' : '', nos.length ? `No: ${nos.join(', ')}` : '', check.disagree ? 'CLUBS DISAGREE' : ''].filter(Boolean);
+    const result = d.homeScore !== '' && d.homeScore != null ? ` ${d.homeScore}-${d.awayScore} ` : ' v ';
+    const subject = `Club Report – ${d.club} – ${d.home}${result}${d.away} (${d.gameDate})` + (tags.length ? ` [${tags.join('] [')}]` : '');
     const html =
       (check.lines.length ? `<div style="border:1px solid ${check.disagree ? '#ec0332' : '#d0d7e5'};background:${check.disagree ? '#fde6eb' : '#f3f6fb'};padding:10px 12px;border-radius:8px;margin:0 0 12px">` +
-        `<b>${check.disagree ? 'The two clubs disagree' : 'Other club'}</b><br>${check.lines.map(escapeHtml).join('<br>')}</div>` : '') +
+        `<b>${check.disagree ? 'Reports disagree – please review' : 'Cross-check'}</b><br>${check.lines.map(escapeHtml).join('<br>')}</div>` : '') +
       (d.warnings ? `<p style="background:#fff6db;padding:8px;border-radius:6px"><b>Validator notes:</b> ${escapeHtml(d.warnings)}</p>` : '') +
       `<pre style="font:13px/1.45 Menlo,Consolas,monospace;white-space:pre-wrap">${escapeHtml(d.report)}</pre>`;
     const mail = { to: CONFIG.OFFICE_EMAIL, subject, htmlBody: html, name: 'APSL Club Reports',
@@ -110,30 +115,58 @@ function submitClubReport(payloadJson) {
   }
 }
 
-/* ---------------- compare the two clubs' reports ---------------- */
+/* ---------------- compare with the other club and the referee ---------------- */
 // Log columns: 0 Timestamp | 1 Email | 2 Conference | 3 Date | 4 Club | 5 Opponent | 6-15 answers | 16 Comments |
-//              17 Verification | 18 Home/Away | 19 Name | 20 Other club
+//              17 Verification | 18 Home/Away | 19 Name | 20 Cross-check | 21 Status | 22 Home score | 23 Away score | 24 Goals
 function compareWithOtherClub(d) {
   const rows = getLog().getSheets()[0].getDataRange().getValues().slice(1);
   const other = rows.filter(r => isoDay(r[3]) === isoDay(d.gameDate) && sameTeam(r[4], d.opponent) && sameTeam(r[5], d.club)).pop();
   const again = rows.some(r => isoDay(r[3]) === isoDay(d.gameDate) && sameTeam(r[4], d.club) && sameTeam(r[5], d.opponent));
   const lines = [], col = k => 6 + CHECKS.findIndex(([x]) => x === k);
+  const mineScore = scoreOf(d.homeScore, d.awayScore, d.status);
+  let scoreMismatch = false;
+  const scoreLine = (who, h, a, st) => {
+    const theirs = scoreOf(h, a, st); if (theirs === '?') return;
+    const agree = theirs === mineScore; if (!agree) scoreMismatch = true;
+    lines.push(`${agree ? '✓' : '✗'} Score – ${who}: ${d.home} ${theirs} ${d.away}${agree ? '' : ` (this report: ${mineScore})`}`);
+  };
   if (again) lines.push(`Note: ${d.club} already filed a report for this match – this is a resubmission.`);
-  if (!other) return { lines, disagree: false, summary: again ? 'Resubmission; other club not in yet' : 'Other club not in yet' };
-  const first = s => String(s || '').split(' – ')[0];
-  const mine = d.answers || {};
+  // referee's report
+  if (CONFIG.REF_LOG_SHEET_ID) {
+    try {
+      const ref = SpreadsheetApp.openById(CONFIG.REF_LOG_SHEET_ID).getSheets()[0].getDataRange().getValues().slice(1)
+        .filter(r => isoDay(r[2]) === isoDay(d.gameDate) && sameTeam(r[4], d.home) && sameTeam(r[7], d.away)).pop();
+      if (ref) scoreLine(`referee (${ref[9] || 'report'})`, ref[5], ref[6], ref[8]); else lines.push('Referee report: not in yet.');
+    } catch (e) { lines.push('Referee log could not be read – check REF_LOG_SHEET_ID.'); }
+  }
   const diffs = [];
-  SHARED.forEach(k => {
-    const theirs = first(other[col(k)]), ours = mine[k];
-    if (theirs && ours && theirs !== ours && theirs !== 'Unsure' && ours !== 'Unsure') diffs.push(`${shortLabel(k)}: ${d.club} says ${ours}, ${other[4]} says ${theirs}`);
-  });
-  // our "we gave sub cards" vs their "opponent gave sub cards", and the reverse
-  const cross = [[mine.ourCards, first(other[col('oppCards')]), `${d.club}'s sub cards & roster`],
-                 [mine.oppCards, first(other[col('ourCards')]), `${other[4]}'s sub cards & roster`]];
-  cross.forEach(([x, y, what]) => { if (x && y && x !== y && x !== 'Unsure' && y !== 'Unsure') diffs.push(`${what}: ${d.club} says ${x}, ${other[4]} says ${y}`); });
-  if (diffs.length) lines.push(...diffs.map(s => '✗ ' + s));
-  else lines.push(`✓ ${other[4]} also reported this match – no disagreements.`);
-  return { lines, disagree: diffs.length > 0, summary: diffs.length ? 'DISAGREE – ' + diffs.join(' | ') : 'Agrees with ' + other[4] };
+  if (other) {
+    if (other[21] !== undefined && other[21] !== '') scoreLine(other[4], other[22], other[23], other[21]);
+    const first = s => String(s || '').split(' – ')[0];
+    const mine = d.answers || {};
+    SHARED.forEach(k => {
+      const theirs = first(other[col(k)]), ours = mine[k];
+      if (theirs && ours && theirs !== ours && theirs !== 'Unsure' && ours !== 'Unsure') diffs.push(`${shortLabel(k)}: ${d.club} says ${ours}, ${other[4]} says ${theirs}`);
+    });
+    // our "we gave sub cards" vs their "opponent gave sub cards", and the reverse
+    const cross = [[mine.ourCards, first(other[col('oppCards')]), `${d.club}'s sub cards & roster`],
+                   [mine.oppCards, first(other[col('ourCards')]), `${other[4]}'s sub cards & roster`]];
+    cross.forEach(([x, y, what]) => { if (x && y && x !== y && x !== 'Unsure' && y !== 'Unsure') diffs.push(`${what}: ${d.club} says ${x}, ${other[4]} says ${y}`); });
+    if (diffs.length) lines.push(...diffs.map(s => '✗ ' + s)); else lines.push(`✓ ${other[4]} also reported this match – match-day checks agree.`);
+  } else lines.push('Other club: not in yet.');
+  const bad = lines.filter(l => l.startsWith('✗'));
+  return { lines, disagree: diffs.length > 0, scoreMismatch,
+    summary: bad.length ? 'DISAGREE – ' + bad.join(' | ') : lines.filter(l => l.startsWith('✓')).length ? 'Agrees with other reports' : 'No other reports yet' };
+}
+function scoreOf(h, a, status) {
+  const st = String(status || '');
+  if (/^not played/i.test(st)) return 'not played';
+  if (h === '' || h == null || a === '' || a == null) return '?';
+  return `${Number(h)}-${Number(a)}`;
+}
+function goalsText(goals) {
+  return (goals || []).map(g => /^Own goal/.test(g.type) ? `OG${g.min ? ' ' + g.min + "'" : ''}`
+    : `#${g.sNum} ${g.sName}${g.type === 'Penalty' ? ' (pen)' : ''}${g.min ? ' ' + g.min + "'" : ''} – A: ${g.aName || g.aNum ? ((g.aNum ? '#' + g.aNum + ' ' : '') + g.aName).trim() : 'none'}`).join('; ');
 }
 function shortLabel(k) {
   return ({ walkout: 'Walkout', physio: 'Physio', film: 'Match film', balls: 'Balls', flags: 'Corner flags', refCare: 'Referee water/table/chairs',
@@ -168,7 +201,8 @@ function getLog() {
     DriveApp.getFileById(ss.getId()).moveTo(getRootFolder());
     const sh = ss.getSheets()[0];
     sh.appendRow(['Timestamp', 'Email Address', 'Conference', 'Date of the Match', "Your Club's Name", 'Your Opponent',
-      ...CHECKS.map(c => c[1]), 'Other comments', 'Verification', 'Home/Away', 'Submitted by', 'Other club']);
+      ...CHECKS.map(c => c[1]), 'Other comments', 'Verification', 'Home/Away', 'Submitted by', 'Cross-check',
+      'Match status', 'Home score', 'Away score', 'Goals & assists (submitting club)']);
     sh.getRange('D:D').setNumberFormat('@');      // keep dates as typed so matches line up
     sh.setFrozenRows(1);
     props.setProperty('LOG_SHEET_ID', ss.getId());
@@ -226,4 +260,7 @@ function isEmail(s) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s || ''));
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // Run once from the editor to grant permissions and create the folder, log and settings sheets.
-function setup() { getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota(); }
+function setup() {
+  getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
+  if (CONFIG.REF_LOG_SHEET_ID) SpreadsheetApp.openById(CONFIG.REF_LOG_SHEET_ID).getName();   // confirms access to the referee log
+}
