@@ -28,22 +28,7 @@ const CONFIG = {
 };
 
 // Serves the referee form. The web app URL is the link you give referees.
-// Old /exec links (already shared, tinyurl, emails) forward to the hosted page, which works on devices signed in to
-// several Google accounts. Add ?stay=1 to the /exec link to use the Google-hosted copy instead.
-function doGet(e) {
-  const p = (e && e.parameter) || {}, target = CONFIG.WEB_APP_URL;
-  if (target && !/script\.google\.com/.test(target) && !p.stay) {
-    const q = Object.keys(p).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(p[k])).join('&');
-    const url = target + (q ? (target.indexOf('?') < 0 ? '?' : '&') + q : '');
-    const attr = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-    return HtmlService.createHtmlOutput(
-      '<meta charset="utf-8"><style>body{font:16px system-ui,sans-serif;text-align:center;padding:48px 16px;color:#222}a{color:#0b3d91}</style>' +
-      '<p>Opening the form&hellip;</p><p><a href="' + attr + '" target="_blank" rel="noopener">Tap here if it doesn\'t open</a></p>' +
-      '<script>try { window.location.replace(' + JSON.stringify(url) + '); } catch (err) {}</script>')
-      .setTitle('APSL Referee Report')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  }
+function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('APSL Referee Report')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
