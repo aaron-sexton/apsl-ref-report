@@ -6,6 +6,8 @@
  *
  * Each submission adds a row to the "Club Post-Match Reports" sheet (same column order as the old form's
  * responses) and emails the submitter a copy. Nothing goes to the office or commissioners right away.
+ * One report per club per match: a second report for the same date + club + opponent is refused. The
+ * confirmation email carries a "correct this report" link that edits the original row instead.
  *
  * Every morning (DIGEST_HOUR, script time zone) sendDailyDigest() looks at the reports received since the
  * last digest and sends at most one email per person:
@@ -23,6 +25,7 @@
 const CONFIG = {
   OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
   CC: '',                                    // extra addresses on every report, comma-separated
+  WEB_APP_URL: '',                           // optional: link used in emails, e.g. a tinyurl for this form
   ROOT_FOLDER_NAME: 'APSL Club Post-Match Reports',
   // Optional: the referee system's "Referee Report Settings" sheet ID, so both forms share one Clubs list
   // and one commissioner list (Assignors tab, column D). Leave '' to create a separate settings sheet.
@@ -83,20 +86,39 @@ function submitClubReport(payloadJson) {
     });
     const a = d.answers || {}, notes = d.notes || {};
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
-    let check;
+    let id = d.editId || '', edited = false, firstAt = null;
     try {
-      check = compareWithOtherClub(d);
+      const sh = getLog().getSheets()[0], rows = sh.getDataRange().getValues();
+      let rowNum = 0;
+      if (id) {
+        rowNum = rows.findIndex((r, i) => i > 0 && String(r[C.ID]) === String(id)) + 1;
+        if (!rowNum) throw new Error('That correction link has expired or is invalid. Please start a new report.');
+        edited = true; firstAt = rows[rowNum - 1][C.TS];
+      }
+      // one report per club per match (ignoring the row being corrected)
+      const dup = rows.find((r, i) => i > 0 && i !== rowNum - 1 && isoDay(r[C.DATE]) === isoDay(d.gameDate) && sameTeam(r[C.CLUB], d.club) && sameTeam(r[C.OPP], d.opponent));
+      if (dup) return { ok: false, duplicate: true, dupId: String(dup[C.ID] || ''), submittedOn: fmtWhen(dup[C.TS]),
+        submittedBy: String(dup[C.NAME] || ''), maskedEmail: maskEmail(dup[1]),
+        error: `${d.club} already submitted a report for this match on ${fmtWhen(dup[C.TS])}.` };
+
+      const check = compareWithOtherClub(d);
       const ans = k => a[k] + (a[k] === 'No' && notes[k] ? ` – ${notes[k]}` : '');
-      logRow([new Date(), d.email, d.division, d.gameDate, d.club, d.opponent, ...CHECKS.map(([k]) => ans(k)),
+      if (!id) id = newId();
+      const state = { ...d }; delete state.report; delete state.website; delete state.editId;
+      const row = [firstAt || new Date(), d.email, d.division, d.gameDate, d.club, d.opponent, ...CHECKS.map(([k]) => ans(k)),
         d.comments || '', 'I agree', d.side === 'home' ? 'Home' : 'Away', d.name, check.summary,
-        d.status || 'Completed', d.homeScore, d.awayScore, goalsText(d.goals), '']);
+        d.status || 'Completed', d.homeScore, d.awayScore, goalsText(d.goals), '', id, edited ? new Date() : '', JSON.stringify(state)];
+      if (rowNum) sh.getRange(rowNum, 1, 1, row.length).setValues([row]);    // replace the original; digest picks it up again
+      else sh.appendRow(row);
     } finally { lock.releaseLock(); }
 
     // The office and commissioners hear about this in the next morning's digest (sendDailyDigest).
     if (isEmail(d.email)) MailApp.sendEmail({
       to: d.email, name: 'APSL Club Reports',
-      subject: `Received: ${d.club} post-match report – ${d.home} v ${d.away} (${d.gameDate})`,
-      body: `Thanks ${d.name} – the APSL office received ${d.club}'s report.\n\nYour report:\n\n${d.report}`,
+      subject: `${edited ? 'Corrected' : 'Received'}: ${d.club} post-match report – ${d.home} v ${d.away} (${d.gameDate})`,
+      body: `Thanks ${d.name} – the APSL office ${edited ? 'has your corrected' : 'received'} ${d.club}'s report.\n\n` +
+            `Need to fix something? Use this link to correct it (it replaces your report – please don't submit a new one):\n${editLink(id)}\n\n` +
+            `Your report:\n\n${d.report}`,
     });
     return { ok: true };
   } catch (err) {
@@ -105,14 +127,46 @@ function submitClubReport(payloadJson) {
   }
 }
 
+/* ---------------- corrections ---------------- */
+// Called by the page when opened from a correction link (?edit=ID).
+function getClubReport(id) {
+  const rows = getLog().getSheets()[0].getDataRange().getValues();
+  const r = rows.find((x, i) => i > 0 && String(x[C.ID]) === String(id));
+  if (!r) return { ok: false };
+  let state = {}; try { state = JSON.parse(r[C.STATE] || '{}'); } catch (e) {}
+  return { ok: true, state, submittedOn: fmtWhen(r[C.TS]) };
+}
+// Called by the page when a duplicate is blocked: emails the correction link to whoever filed the original.
+function resendEditLink(id) {
+  const rows = getLog().getSheets()[0].getDataRange().getValues();
+  const r = rows.find((x, i) => i > 0 && String(x[C.ID]) === String(id));
+  if (!r || !isEmail(r[1])) return { ok: false };
+  MailApp.sendEmail({ to: r[1], name: 'APSL Club Reports',
+    subject: `Correction link: ${r[C.CLUB]} post-match report (${isoDay(r[C.DATE])})`,
+    body: `Someone tried to submit a second report for ${r[C.CLUB]} v ${r[C.OPP]} (${isoDay(r[C.DATE])}). ` +
+          `Each club can file one report per match. To change the report you submitted, use this link:\n${editLink(r[C.ID])}` });
+  return { ok: true, to: maskEmail(r[1]) };
+}
+function newId() {
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let id = ''; for (let i = 0; i < 10; i++) id += abc[Math.floor(Math.random() * abc.length)];
+  return id;
+}
+function appUrl() {
+  return CONFIG.WEB_APP_URL || ScriptApp.getService().getUrl().replace(/\/a\/macros\/[^/]+\//, '/macros/');
+}
+function editLink(id) { return `${appUrl()}?edit=${encodeURIComponent(id)}`; }
+function maskEmail(e) { const [u, dom] = String(e || '').split('@'); return dom ? `${u.slice(0, 2)}${'•'.repeat(Math.max(1, u.length - 2))}@${dom}` : ''; }
+function fmtWhen(d) { try { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'EEE MMM d, h:mm a'); } catch (e) { return ''; } }
+
 /* ---------------- compare with the other club and the referee ---------------- */
 // Log columns: 0 Timestamp | 1 Email | 2 Conference | 3 Date | 4 Club | 5 Opponent | 6-15 answers | 16 Comments |
 //              17 Verification | 18 Home/Away | 19 Name | 20 Cross-check | 21 Status | 22 Home score | 23 Away score | 24 Goals |
-//              25 Included in digest
+//              25 Included in digest | 26 Report ID | 27 Last corrected | 28 Saved form (JSON, for corrections)
 function compareWithOtherClub(d) {
   const rows = getLog().getSheets()[0].getDataRange().getValues().slice(1);
   const other = rows.filter(r => isoDay(r[3]) === isoDay(d.gameDate) && sameTeam(r[4], d.opponent) && sameTeam(r[5], d.club)).pop();
-  const again = rows.some(r => isoDay(r[3]) === isoDay(d.gameDate) && sameTeam(r[4], d.club) && sameTeam(r[5], d.opponent));
+  const again = false;   // duplicates are refused before this runs
   const lines = [], col = k => 6 + CHECKS.findIndex(([x]) => x === k);
   const mineScore = scoreOf(d.homeScore, d.awayScore, d.status);
   let scoreMismatch = false;
@@ -174,7 +228,7 @@ function isoDay(v) {
 }
 
 /* ---------------- daily digest ---------------- */
-const C = { TS: 0, CONF: 2, DATE: 3, CLUB: 4, OPP: 5, ANS: 6, COMMENTS: 16, SIDE: 18, NAME: 19, STATUS: 21, H: 22, A: 23, GOALS: 24, DIGEST: 25 };
+const C = { TS: 0, CONF: 2, DATE: 3, CLUB: 4, OPP: 5, ANS: 6, COMMENTS: 16, SIDE: 18, NAME: 19, STATUS: 21, H: 22, A: 23, GOALS: 24, DIGEST: 25, ID: 26, EDITED: 27, STATE: 28 };
 const homeOf = r => (r[C.SIDE] === 'Home' ? r[C.CLUB] : r[C.OPP]);
 const awayOf = r => (r[C.SIDE] === 'Home' ? r[C.OPP] : r[C.CLUB]);
 const matchKey = r => `${isoDay(r[C.DATE])}|${key(homeOf(r))}|${key(awayOf(r))}`;
@@ -244,7 +298,7 @@ function buildMatch(m) {
   m.issues = [];
   if (m.mismatch) m.issues.push(`Score mismatch – ${m.scoreBy}`);
   reps.forEach(([side, r]) => {
-    const tag = `${r[C.CLUB]} (${side})${m.isNew(r) ? '' : ' – earlier report'}`;
+    const tag = `${r[C.CLUB]} (${side})${m.isNew(r) ? (r[C.EDITED] ? ' – corrected report' : '') : ' – earlier report'}`;
     const nos = CHECKS.map(([k], i) => [k, String(r[C.ANS + i] || '')]).filter(([, v]) => /^No\b/.test(v))
       .map(([k, v]) => shortLabel(k) + (v.includes(' – ') ? ' (' + v.split(' – ').slice(1).join(' – ') + ')' : ''));
     if (nos.length) m.issues.push(`${tag} answered No: ${nos.join('; ')}`);
@@ -324,7 +378,9 @@ function getLog() {
     const sh = ss.getSheets()[0];
     sh.appendRow(['Timestamp', 'Email Address', 'Conference', 'Date of the Match', "Your Club's Name", 'Your Opponent',
       ...CHECKS.map(c => c[1]), 'Other comments', 'Verification', 'Home/Away', 'Submitted by', 'Cross-check',
-      'Match status', 'Home score', 'Away score', 'Goals & assists (submitting club)', 'Included in digest']);
+      'Match status', 'Home score', 'Away score', 'Goals & assists (submitting club)', 'Included in digest',
+      'Report ID', 'Last corrected', 'Saved form (do not edit)']);
+    sh.hideColumns(29);
     sh.getRange('D:D').setNumberFormat('@');      // keep dates as typed so matches line up
     sh.setFrozenRows(1);
     props.setProperty('LOG_SHEET_ID', ss.getId());

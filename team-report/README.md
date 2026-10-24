@@ -17,8 +17,17 @@ Cards, subs and photos stay with the referee.
 
 1. A row is added to the **Club Post-Match Reports** sheet – same column order and headers as the old form's
    response sheet, then Home/Away, Submitted by, Cross-check, Match status, Home score, Away score,
-   Goals & assists and Included in digest.
-2. The submitter gets a copy by email. **Nothing goes to the office or commissioners at this point.**
+   Goals & assists, Included in digest, Report ID, Last corrected (and a hidden copy of the form for corrections).
+2. The submitter gets a copy by email, with a **correct this report** link. **Nothing goes to the office or
+   commissioners at this point.**
+
+## One report per club per match
+
+- A second report for the same **date + club + opponent** is refused. The club sees who filed the original (email
+  masked) and can have the correction link re-sent – it only ever goes to the person who filed the original.
+- The correction link opens the form pre-filled; submitting **replaces** the original row (Last corrected is stamped)
+  and the corrected report appears in the next morning's digest, marked "corrected report".
+- Optional: set `WEB_APP_URL` in `Code.gs` to the form's short link so emailed links use it.
 
 ## Morning digest (one email per person, per day)
 
