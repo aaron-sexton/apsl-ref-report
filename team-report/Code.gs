@@ -25,7 +25,7 @@
 const CONFIG = {
   OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
   CC: '',                                    // extra addresses on every report, comma-separated
-  WEB_APP_URL: '',                           // link used in emailed correction links – set to the form's public address
+  WEB_APP_URL: 'https://aaron-sexton.github.io/apsl-ref-report/team-report/',                         // link used in emailed correction links – set to the form's public address
                                              // (e.g. the GitHub Pages page or a tinyurl). Blank = this script's /exec link.
   ROOT_FOLDER_NAME: 'APSL Club Post-Match Reports',
   // Optional: the referee system's "Referee Report Settings" sheet ID, so both forms share one Clubs list
