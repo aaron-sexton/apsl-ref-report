@@ -250,11 +250,32 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 
 <script>
 /* =============================== CONFIG =============================== */
-const CONFIG = { officeEmail: "office@apslsoccer.com" };
+const CONFIG = {
+  officeEmail: "office@apslsoccer.com",
+  // The club form's Apps Script web app link (ends in /exec). Used when this page is hosted outside Apps Script
+  // (e.g. GitHub Pages) – which avoids Google's "multiple signed-in accounts" problem.
+  endpoint: "PASTE_CLUB_FORM_WEB_APP_URL_HERE",
+};
 /* ====================================================================== */
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+
+/* ---------- talking to the league's server ----------
+   Served by Apps Script → google.script.run. Hosted anywhere else → a plain POST to the /exec link, which carries no
+   Google sign-in, so it works no matter how many Google accounts are signed in on the device. */
+const IN_APPS_SCRIPT = !!(window.google && google.script && google.script.run);
+function api(fn, ...args) {
+  if (IN_APPS_SCRIPT) return new Promise((res, rej) => google.script.run.withSuccessHandler(res)
+    .withFailureHandler(e => rej(new Error(e && e.message || "Couldn't reach the league's server – check your connection.")))[fn](...args));
+  if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) return Promise.reject(new Error("This page isn't connected to the league's server yet."));
+  return fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: fn, args }) })
+    .then(r => r.json()).catch(() => { throw new Error("Couldn't reach the league's server – check your connection."); });
+}
+function pageParams() {
+  if (IN_APPS_SCRIPT && google.script.url) return new Promise(res => google.script.url.getLocation(loc => res((loc && loc.parameter) || {})));
+  return Promise.resolve(Object.fromEntries(new URLSearchParams(location.search)));
+}
 const DRAFT_KEY = "apsl-club-draft-v2";
 const OTHER = "__other";
 $("#officeLink").textContent = CONFIG.officeEmail;
@@ -467,22 +488,19 @@ function applyReport(st) {
   paintChecks(); refresh();
 }
 function openCorrectionLink() {
-  if (!(window.google && google.script && google.script.url)) return;
-  google.script.url.getLocation(loc => {
-    const id = loc && loc.parameter && loc.parameter.edit;
+  pageParams().then(params => {
+    const id = params.edit;
     if (!id) return;
-    google.script.run.withSuccessHandler(r => {
+    api("getClubReport", id).then(r => {
       const b = $("#editBanner"); b.classList.remove("hidden");
       if (!r || !r.ok) { b.innerHTML = "<strong>That correction link didn't work.</strong> It may be out of date. Fill in a new report below."; return; }
       applyReport(r.state); $("#editId").value = id;
       b.innerHTML = `<strong>You're correcting the report submitted ${esc(r.submittedOn)}.</strong> Change anything that's wrong and submit – this replaces your original report.`;
       $("#submitBtn").textContent = "Submit correction";
-    }).withFailureHandler(() => {}).getClubReport(id);
+    }, () => {});
   });
 }
-if (window.google && google.script && google.script.run) {
-  google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
-} else startForm(null);
+api("getSetup").then(startForm, () => startForm(null));
 
 /* ---------- submit ---------- */
 $("#f").addEventListener("submit", e => {
@@ -507,9 +525,7 @@ async function send(warns) {
       home: home(), away: away(), status: val("status"), homeScore: played() ? val("homeScore") : "", awayScore: played() ? val("awayScore") : "",
       goals: played() ? goalRows() : [], name: val("subName"), email: val("subEmail"), answers, notes, comments: val("comments"),
       report: buildReport(), warnings: warns.join(" | "), website: val("website"), editId: val("editId") };
-    if (!(window.google && google.script && google.script.run)) throw new Error("This page isn't connected to the league's server.");
-    const j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res)
-      .withFailureHandler(e => rej(new Error(e && e.message || "Couldn't send – check your connection."))).submitClubReport(JSON.stringify(payload)));
+    const j = await api("submitClubReport", JSON.stringify(payload));
     if (j && j.duplicate) {
       btn.disabled = false; btn.textContent = "Submit report";
       status.innerHTML = `<div class="notice warn"><strong>Your club has already reported this match.</strong>
@@ -519,8 +535,8 @@ async function send(warns) {
       const rb = $("#resendLink");
       if (rb) rb.addEventListener("click", () => {
         rb.disabled = true; rb.textContent = "Sending…";
-        google.script.run.withSuccessHandler(r => { rb.outerHTML = r && r.ok ? `<span>Sent to ${esc(r.to)}.</span>` : "<span>Couldn't send – contact the league office.</span>"; })
-          .withFailureHandler(() => { rb.disabled = false; rb.textContent = "Email the correction link again"; }).resendEditLink(j.dupId);
+        api("resendEditLink", j.dupId).then(r => { rb.outerHTML = r && r.ok ? `<span>Sent to ${esc(r.to)}.</span>` : "<span>Couldn't send – contact the league office.</span>"; },
+          () => { rb.disabled = false; rb.textContent = "Email the correction link again"; });
       });
       return;
     }

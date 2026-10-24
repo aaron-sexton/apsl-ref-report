@@ -27,7 +27,7 @@ Cards, subs and photos stay with the referee.
   masked) and can have the correction link re-sent – it only ever goes to the person who filed the original.
 - The correction link opens the form pre-filled; submitting **replaces** the original row (Last corrected is stamped)
   and the corrected report appears in the next morning's digest, marked "corrected report".
-- Optional: set `WEB_APP_URL` in `Code.gs` to the form's short link so emailed links use it.
+- Set `WEB_APP_URL` in `Code.gs` to the form's GitHub Pages address so emailed correction links open there.
 
 ## Morning digest (one email per person, per day)
 
@@ -52,13 +52,16 @@ Referee assignors are never emailed. To send a digest right away, run `sendDaily
 ## Setup (about 5 minutes)
 
 1. New Apps Script project (script.google.com → New project), signed in as asexton@apslsoccer.com.
-2. Paste `Code.gs`. Add an HTML file named **Index** and paste `Index.html`. Save.
+2. Paste `Code.gs`. Add an HTML file named **Index** and paste `index.html`. Save.
 3. Optional – share one club list and one commissioner list with the referee form: paste the referee system's
    **Referee Report Settings** sheet ID into `SETTINGS_SHEET_ID`. Leave blank for a separate **Club Report Settings** sheet.
 4. Check **Project Settings → Time zone** is (GMT-05:00) Eastern Time, so the digest arrives at 8 AM Eastern.
    Then run **setup** once and approve the permissions – it also schedules the daily digest.
 5. Deploy → New deployment → Web app → Execute as **Me**, Who has access **Anyone**.
 6. Fill in commissioner emails (column D of the Assignors tab), then send a test report.
+
+7. Share the GitHub Pages copy of this page, not the `/exec` link, so devices signed in to several Google
+   accounts can open it. See `../HOSTING.md`.
 
 To update later: Deploy → **Manage deployments** → pencil → **New version** (keeps the same link).
 When testing is done, change `OFFICE_EMAIL` to `office@apslsoccer.com`.

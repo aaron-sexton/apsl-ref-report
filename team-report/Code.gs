@@ -25,7 +25,8 @@
 const CONFIG = {
   OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
   CC: '',                                    // extra addresses on every report, comma-separated
-  WEB_APP_URL: '',                           // optional: link used in emails, e.g. a tinyurl for this form
+  WEB_APP_URL: '',                           // link used in emailed correction links – set to the form's public address
+                                             // (e.g. the GitHub Pages page or a tinyurl). Blank = this script's /exec link.
   ROOT_FOLDER_NAME: 'APSL Club Post-Match Reports',
   // Optional: the referee system's "Referee Report Settings" sheet ID, so both forms share one Clubs list
   // and one commissioner list (Assignors tab, column D). Leave '' to create a separate settings sheet.
@@ -75,6 +76,18 @@ function getSetup() {
   });
   return { conferences: Object.keys(map).map(name => ({ name, clubs: map[name].sort((a, b) => a.localeCompare(b)) })) };
 }
+
+// The page can also be hosted outside Apps Script (e.g. GitHub Pages) and call these by plain POST –
+// no Google sign-in involved, so devices with several Google accounts signed in work fine.
+const API = { getSetup, submitClubReport, getClubReport, resendEditLink };
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents), fn = API[body.action];
+    if (!fn) return json({ ok: false, error: 'Unknown action.' });
+    return json(fn(...(body.args || [])));
+  } catch (err) { console.error(err); return json({ ok: false, error: String(err.message || err) }); }
+}
+function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 // Called by the form page.
 function submitClubReport(payloadJson) {

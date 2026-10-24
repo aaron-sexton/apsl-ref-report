@@ -22,7 +22,8 @@ const CONFIG = {
   ROOT_FOLDER_NAME: 'APSL Referee Reports',
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
   REMINDER_AFTER_HOURS: 18,                  // one reminder if the report isn't in by then (due within 24h)
-  WEB_APP_URL: '',                           // optional: paste the /exec link if emailed links ever look wrong
+  WEB_APP_URL: '',                           // link used in emailed resume links – set to the form's public address
+                                             // (e.g. the GitHub Pages page or tinyurl). Blank = this script's /exec link.
   SUPPLEMENTAL_TEMPLATE_NAME: 'Supplemental Referee Report (blank).pdf',   // put this file in the root folder
 };
 
@@ -85,8 +86,18 @@ function getClubsSheet() {
 // Called by the form page (google.script.run). Takes a JSON string, returns {ok, error?}.
 function submitReport(payloadJson) { return handle(JSON.parse(payloadJson)); }
 
-// Still accepts POSTs, so a copy of the page hosted elsewhere (e.g. GitHub Pages) also works.
-function doPost(e) { return json(handle(JSON.parse(e.postData.contents))); }
+// The page can also be hosted outside Apps Script (e.g. GitHub Pages) and call these by plain POST –
+// no Google sign-in involved, so devices with several Google accounts signed in work fine.
+const API = { getSetup, submitReport, savePrematch, loadPrematch, getSupplementalTemplate };
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    if (!body.action) return json(handle(body));                               // older pages: plain report payload
+    const fn = API[body.action];
+    if (!fn) return json({ ok: false, error: 'Unknown action.' });
+    return json(fn(...(body.args || [])));
+  } catch (err) { console.error(err); return json({ ok: false, error: String(err.message || err) }); }
+}
 
 function handle(data) {
   try {

@@ -378,7 +378,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <script>
 /* =============================== CONFIG =============================== */
 const CONFIG = {
-  // Only used if this page is hosted outside Apps Script: the web app URL ending in /exec.
+  // The Apps Script web app link (ends in /exec). Used when this page is hosted outside Apps Script
+  // (e.g. GitHub Pages) – which avoids Google's "multiple signed-in accounts" problem.
   endpoint: "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE",
   officeEmail: "office@apslsoccer.com",
   maxSubs: 7,
@@ -391,6 +392,22 @@ const CONFIG = {
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+
+/* ---------- talking to the league's server ----------
+   Served by Apps Script → google.script.run. Hosted anywhere else → a plain POST to the /exec link. The POST carries
+   no Google sign-in, so it works no matter how many Google accounts are signed in on the device. */
+const IN_APPS_SCRIPT = !!(window.google && google.script && google.script.run);
+function api(fn, ...args) {
+  if (IN_APPS_SCRIPT) return new Promise((res, rej) => google.script.run.withSuccessHandler(res)
+    .withFailureHandler(e => rej(new Error(e && e.message || "Couldn't reach the league's server – check your connection.")))[fn](...args));
+  if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) return Promise.reject(new Error("This page isn't connected to the league's server yet."));
+  return fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: fn, args }) })
+    .then(r => r.json()).catch(() => { throw new Error("Couldn't reach the league's server – check your connection."); });
+}
+function pageParams() {
+  if (IN_APPS_SCRIPT && google.script.url) return new Promise(res => google.script.url.getLocation(loc => res((loc && loc.parameter) || {})));
+  return Promise.resolve(Object.fromEntries(new URLSearchParams(location.search)));
+}
 const DRAFT_KEY = "apsl-ref-draft-v7";
 const OTHER = "__other";
 const files = { home: [], away: [], supp: [] };   // {file: File, name, size, url}
@@ -900,9 +917,7 @@ function startForm(setup) {
     if (!resumed && val("pmClientAt") && !val("pmSavedAt") && val("pmSkipped") !== "1") savePrematch(true);   // sync a phone-only save
   });
 }
-if (window.google && google.script && google.script.run) {
-  google.script.run.withSuccessHandler(startForm).withFailureHandler(() => startForm(null)).getSetup();
-} else startForm(null);
+api("getSetup").then(startForm, () => startForm(null));
 
 /* ---------- steps ---------- */
 function showStep(n) {
@@ -933,17 +948,15 @@ function prematchState() {
   return f;
 }
 function savePrematch(quiet) {
-  const run = window.google && google.script && google.script.run;
-  if (!run) return Promise.resolve(null);
   const payload = { id: val("pmId"), clientAt: val("pmClientAt"), kickoffMs: koDate() ? koDate().getTime() : null,
     summary: { division: val("division"), home: val("home"), away: val("away"), gameDate: val("gameDate"), kickoff: val("kickoff"),
       refName: val("refName"), refEmail: val("refEmail"),
       problems: PRE_ITEMS.filter(it => pmVal(it.k) === "problem").map(it => it.r + (itemDetail(it) ? ": " + itemDetail(it) : "")).join(" | ") },
     state: prematchState() };
-  return new Promise(res => google.script.run.withSuccessHandler(r => {
+  return api("savePrematch", JSON.stringify(payload)).then(r => {
     if (r && r.ok) { $("#pmId").value = r.id; $("#pmSavedAt").value = r.savedAt; saveDraft(); refresh(); }
-    res(r);
-  }).withFailureHandler(() => res(null)).savePrematch(JSON.stringify(payload)));
+    return r;
+  }, () => null);
 }
 $("#saveStep1").addEventListener("click", async () => {
   $$(".invalid").forEach(el => el.classList.remove("invalid"));
@@ -974,11 +987,10 @@ function applyState(f) {
   $("#home").dispatchEvent(new Event("change"));
 }
 function resumeFromLink(done) {
-  if (!(window.google && google.script && google.script.url)) return done(false);
-  google.script.url.getLocation(loc => {
-    const id = loc && loc.parameter && loc.parameter.r;
+  pageParams().then(params => {
+    const id = params.r;
     if (!id) return done(false);
-    google.script.run.withFailureHandler(() => done(false)).withSuccessHandler(r => {
+    api("loadPrematch", id).then(r => {
       if (!r || !r.ok) { $("#stepNote").innerHTML = `<div class="notice warn">That report link wasn't found. Start a new report below.</div>`; return done(false); }
       if (r.submitted) { $("#stepNote").innerHTML = `<div class="notice ok">The report for this match was already submitted on ${esc(fmtTime(r.submitted))}. Thanks!</div>`; return done(false); }
       if (val("pmId") !== id) {      // a different match was in progress on this phone – start clean
@@ -988,7 +1000,7 @@ function resumeFromLink(done) {
       applyState(r.state); $("#pmId").value = id; $("#pmSavedAt").value = r.savedAt; $("#pmClientAt").value = r.clientAt || r.savedAt; $("#pmSkipped").value = "";
       $("#stepNote").innerHTML = `<div class="notice ok">Welcome back – your pre-match checklist is loaded. Fill in the match below.</div>`;
       done(true);
-    }).loadPrematch(id);
+    }, () => done(false));
   });
 }
 
@@ -1013,9 +1025,8 @@ $("#getTemplate").addEventListener("click", () => {
   const btn = $("#getTemplate"), msg = $("#templateMsg");
   const fail = () => { btn.disabled = false; btn.textContent = "⬇ Download blank supplemental form (PDF)";
     msg.innerHTML = `<div class="notice warn">Couldn't load the form. Ask the league office at <a href="mailto:${CONFIG.officeEmail}">${CONFIG.officeEmail}</a>, or write your statement in the box below.</div>`; };
-  if (!(window.google && google.script && google.script.run)) return fail();
   btn.disabled = true; btn.textContent = "Preparing…"; msg.innerHTML = "";
-  google.script.run.withFailureHandler(fail).withSuccessHandler(r => {
+  api("getSupplementalTemplate").then(r => {
     if (!r || !r.ok) return fail();
     const bytes = Uint8Array.from(atob(r.data), c => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: r.type || "application/pdf" }));
@@ -1023,7 +1034,7 @@ $("#getTemplate").addEventListener("click", () => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     btn.disabled = false; btn.textContent = "⬇ Download blank supplemental form (PDF)";
     msg.innerHTML = `<div class="notice ok">Downloaded. Fill it in, then photograph or upload it here.</div>`;
-  }).getSupplementalTemplate();
+  }, fail);
 });
 
 /* ---------- submit ---------- */
@@ -1058,14 +1069,7 @@ async function send(warns) {
     ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
     fields.status = statusText();
     const payload = { prematchId: val("pmId"), fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
-    let j;
-    if (window.google && google.script && google.script.run) {        // served by Apps Script
-      j = await new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(new Error(e && e.message || "Upload failed – check your connection."))).submitReport(JSON.stringify(payload)));
-    } else {                                                           // hosted elsewhere
-      if (!/^https:\/\/script\.google\.com\//.test(CONFIG.endpoint)) throw new Error("This page isn't connected to the league's server yet.");
-      const res = await fetch(CONFIG.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-      j = await res.json().catch(() => ({ ok: false, error: "Unexpected response from server." }));
-    }
+    const j = await api("submitReport", JSON.stringify(payload));
     if (!j.ok) throw new Error(j.error || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
     $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
