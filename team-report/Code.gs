@@ -379,9 +379,11 @@ function digestHtml(title, ms, detail, issuesOnly) {
   });
   return out;
 }
-function footerHtml() {
+function footerHtml(what) {
   let url = ''; try { url = getLog().getUrl ? getLog().getUrl() : ''; } catch (e) {}
-  return `<p style="font:12px Arial;color:#5f6675;margin-top:16px">Full answers, goals and assists are in the ${url ? `<a href="${url}">Club Post-Match Reports</a>` : 'Club Post-Match Reports'} sheet.</p>`;
+  const sheet = url ? `<a href="${url}">Club Post-Match Reports</a>` : 'Club Post-Match Reports';
+  return `<p style="font:12px Arial;color:#5f6675;margin-top:16px">${what === 'totw'
+    ? `Every nomination is on the TOTW Nominations tab of the ${sheet} sheet.` : `Full answers, goals and assists are in the ${sheet} sheet.`}</p>`;
 }
 
 /* ---------------- Team of the Week ---------------- */
@@ -487,7 +489,7 @@ function sendTotwDigest() {
       const short = c => c.replace(/\s*\(.*\)$/, '').replace(/ Conference/, '');
       MailApp.sendEmail({ to, name: 'APSL Club Reports',
         subject: `Team of the Week nominations – ${confs.map(short).join(', ')} (${list.length}, week of ${weeks.map(niceDate).join(', ')})`,
-        htmlBody: totwHtml(confs, list) + footerHtml(), body: totwText(confs, list) });
+        htmlBody: totwHtml(confs, list) + footerHtml('totw'), body: totwText(confs, list) });
     });
     const stamp = new Date();
     due.forEach(i => sh.getRange(i + 2, T.SENT + 1).setValue(stamp));
