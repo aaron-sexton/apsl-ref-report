@@ -29,6 +29,26 @@ Cards, subs and photos stay with the referee.
   and the corrected report appears in the next morning's digest, marked "corrected report".
 - Set `WEB_APP_URL` in `Code.gs` to the form's GitHub Pages address so emailed correction links open there.
 
+## Team of the Week (unlocked by the report)
+
+Team of the Week nominations live in this form now, and a club can only nominate after it files its match report.
+That's the incentive to report.
+
+- The blank form shows a locked **Team of the Week** card. Submitting the report unlocks it on the success screen.
+- The club nominates **its own players** from that match, plus at most **one head coach**: position (GK / DEF / MID /
+  FWD / Head coach), name, optional shirt number, and why. Up to 11 players per report. Scorers and assisters from the
+  report appear as one-tap shortcuts.
+- The confirmation email has a **Team of the Week link** so the club can add or change nominations later. Matches
+  that weren't played (postponed, cancelled, forfeit) don't unlock it.
+- Nominations close at **12 pm on the Tuesday after the match** (script time zone). Saving again replaces the
+  club's earlier list for that match.
+- At the deadline, `sendTotwDigest` (Tuesdays 12 pm) emails each **conference commissioner** their conference's
+  nominations grouped by position. A conference with no commissioner email goes to the office. Nothing is sent to
+  marketing; the commissioner picks the team as before.
+- Everything is logged on the **TOTW Nominations** tab of the Club Post-Match Reports sheet.
+- Close the old Team of the Week Google Form, and point the weekly "Team of the Week Form Submissions" email at
+  this form instead, or clubs can skip the report.
+
 ## Morning digest (one email per person, per day)
 
 Every morning at 8 AM (`DIGEST_HOUR`) the script looks at reports received since the last digest. Nothing is sent
@@ -56,7 +76,8 @@ Referee assignors are never emailed. To send a digest right away, run `sendDaily
 3. Optional – share one club list and one commissioner list with the referee form: paste the referee system's
    **Referee Report Settings** sheet ID into `SETTINGS_SHEET_ID`. Leave blank for a separate **Club Report Settings** sheet.
 4. Check **Project Settings → Time zone** is (GMT-05:00) Eastern Time, so the digest arrives at 8 AM Eastern.
-   Then run **setup** once and approve the permissions – it also schedules the daily digest.
+   Then run **setup** once and approve the permissions – it also schedules the daily digest and the Tuesday
+   Team of the Week email. **Run setup again after updating the code**, so the Tuesday trigger gets added.
 5. Deploy → New deployment → Web app → Execute as **Me**, Who has access **Anyone**.
 6. Fill in commissioner emails (column D of the Assignors tab), then send a test report.
 

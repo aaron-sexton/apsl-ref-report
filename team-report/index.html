@@ -149,6 +149,18 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 .seg button.on[data-v="unsure"]{background:var(--muted);color:#fff}
 .pm.is-unsure{border-color:var(--muted)}
 .row.cgoal{grid-template-columns:.6fr 1.4fr .6fr 1.4fr .6fr 1fr auto}
+.row.nom{grid-template-columns:1fr .5fr 1.5fr 2fr auto}
+@media (max-width:640px){.row.nom{grid-template-columns:1.3fr .7fr}.row.nom .nName,.row.nom .nWhy{grid-column:1/-1}.row.nom .x{grid-column:1/-1}}
+.row.nom .nName,.row.nom .nWhy{display:block}
+.totw{text-align:left;border-top:1px solid var(--line);margin-top:22px;padding-top:18px}
+.totw h3{font:800 17px/1.3 Montserrat,sans-serif;margin:6px 0 4px}
+.unlock{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  padding:4px 10px;border-radius:999px;background:var(--ok-soft);color:var(--ok)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.chips button{min-height:36px;padding:6px 10px;font-size:13px;border-radius:999px;border-style:dashed}
+section.card.locked{border-style:dashed;opacity:.85}
+#saveNoms{margin-top:12px}
+section.card.locked h2 .n{background:var(--line);color:var(--muted)}
 @media (max-width:640px){.row.cgoal{grid-template-columns:.7fr 1.3fr}.row.cgoal .x{grid-column:1/-1}}
 </style>
 </head>
@@ -158,7 +170,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <div>
   <small>American Premier Soccer League</small>
   <h1>Club Post-Match Report</h1>
-  <p>For club managers and officials – one report per club after every match. Takes about 2 minutes.</p>
+  <p>For club managers and officials – one report per club after every match. Takes about 2 minutes, and unlocks your Team of the Week nominations.</p>
   </div>
 </div></header>
 
@@ -167,8 +179,21 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <div id="doneView" class="card hidden" style="background:var(--card);border:1px solid var(--line);border-radius:12px">
   <div class="done">
     <img alt="APSL" src="data:image/png;base64,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" style="width:84px;height:auto;margin:0 auto 10px;display:block">
-    <h2>Report submitted</h2>
-    <p class="hint">Thanks – your report is in. The league office and your conference commissioner get a summary the next morning. A copy is on its way to your email, with a link to correct the report if you need to.</p>
+    <h2 id="doneTitle">Report submitted</h2>
+    <p class="hint" id="doneHint">Thanks – your report is in. The league office and your conference commissioner get a summary the next morning. A copy is on its way to your email, with a link to correct the report if you need to.</p>
+    <div id="totwPanel" class="totw hidden">
+      <span class="unlock">🔓 Team of the Week unlocked</span>
+      <h3 id="totwTitle">Team of the Week nominations</h3>
+      <p class="hint" id="totwInfo"></p>
+      <div id="totwBody">
+        <div id="scorerChips" class="chips"></div>
+        <div id="noms" class="row-list"></div>
+        <button type="button" class="add" id="addNom">+ Add nominee</button>
+        <div id="totwMsg"></div>
+        <button type="button" class="primary" id="saveNoms">Submit nominations</button>
+      </div>
+    </div>
+    <div style="height:18px"></div>
     <button type="button" id="startAnother">Report another match</button>
   </div>
 </div>
@@ -242,6 +267,11 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
   <button type="submit" class="primary" id="submitBtn">Submit report</button>
   <input type="text" name="website" id="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
   <div id="sendStatus"></div>
+</section>
+
+<section class="card locked" id="totwTeaser">
+  <h2><span class="n">🔒</span>Team of the Week</h2>
+  <p class="hint" style="margin:0">Submit this report to unlock your club's Team of the Week nominations for this match. Nominations close Tuesday at 12 pm ET.</p>
 </section>
 
 </form>
@@ -336,7 +366,7 @@ function goalRow(d = {}) {
     <div><label>Scorer name <span class="req">*</span></label><input class="sName" autocapitalize="words"></div>
     <div><label>Assist #</label><input class="aNum" inputmode="numeric"></div>
     <div><label>Assist name</label><input class="aName" placeholder="Blank = no assist" autocapitalize="words"></div>
-    <div><label>Min</label><input class="min" inputmode="numeric" placeholder="optional"></div>
+    <div><label>Min (if known)</label><input class="min" inputmode="numeric" placeholder="optional"></div>
     <div><label>Type</label><select class="type"><option>Goal</option><option>Penalty</option><option>Own goal (by opponent)</option></select></div>
     <button type="button" class="x" aria-label="Remove">✕</button>`;
   GOAL_FIELDS.forEach(f => { if (d[f] != null) div.querySelector("." + f).value = d[f]; });
@@ -489,6 +519,7 @@ function applyReport(st) {
 }
 function openCorrectionLink() {
   pageParams().then(params => {
+    if (params.totw) return openTotwLink(params.totw);
     const id = params.edit;
     if (!id) return;
     api("getClubReport", id).then(r => {
@@ -501,6 +532,117 @@ function openCorrectionLink() {
   });
 }
 api("getSetup").then(startForm, () => startForm(null));
+
+/* ---------- Team of the Week (unlocked by submitting the report) ---------- */
+const POSITIONS = ["GK", "DEF", "MID", "FWD", "Head coach"];
+const MAX_PLAYERS = 11;
+let TOTW = null, TOTW_GOALS = [];
+function nomRow(n = {}) {
+  const div = document.createElement("div");
+  div.className = "row nom";
+  div.innerHTML = `
+    <div><label>Position <span class="req">*</span></label><select class="nPos">${opt("", "Select…")}${POSITIONS.map(p => opt(p)).join("")}</select></div>
+    <div><label>#</label><input class="nNum" inputmode="numeric" placeholder="opt."></div>
+    <div class="nName"><label>Name <span class="req">*</span></label><input class="nNameIn" autocapitalize="words" placeholder="First and last name"></div>
+    <div class="nWhy"><label>Why? <span class="req">*</span></label><input class="nWhyIn" placeholder="e.g. 2 goals and an assist, clean sheet"></div>
+    <button type="button" class="x" aria-label="Remove">✕</button>`;
+  div.querySelector(".nPos").value = n.pos || ""; div.querySelector(".nNum").value = n.num || "";
+  div.querySelector(".nNameIn").value = n.name || ""; div.querySelector(".nWhyIn").value = n.why || "";
+  $("#noms").appendChild(div); paintNoms();
+  return div;
+}
+const nomRows = () => $$("#noms .row").map(r => ({ pos: r.querySelector(".nPos").value, num: r.querySelector(".nNum").value.trim(),
+  name: r.querySelector(".nNameIn").value.trim(), why: r.querySelector(".nWhyIn").value.trim() }));
+function paintNoms() {
+  $$("#noms .row").forEach(r => { const hc = r.querySelector(".nPos").value === "Head coach", n = r.querySelector(".nNum");
+    n.disabled = hc; if (hc) n.value = ""; });
+  const list = nomRows(), players = list.filter(n => n.pos !== "Head coach").length;
+  $("#addNom").disabled = players >= MAX_PLAYERS && list.some(n => n.pos === "Head coach");
+  // scorer shortcuts: anyone from the report's goals who isn't nominated yet
+  const have = new Set(list.map(n => n.name.toLowerCase()));
+  const people = {};
+  TOTW_GOALS.filter(g => !isOG(g)).forEach(g => {
+    const s = (people[g.sName.toLowerCase()] ||= { name: g.sName, num: g.sNum, goals: 0, assists: 0 }); s.goals++;
+    if (g.aName) { const a = (people[g.aName.toLowerCase()] ||= { name: g.aName, num: g.aNum, goals: 0, assists: 0 }); a.assists++; }
+  });
+  const why = p => [p.goals ? `${p.goals} goal${p.goals > 1 ? "s" : ""}` : "", p.assists ? `${p.assists} assist${p.assists > 1 ? "s" : ""}` : ""].filter(Boolean).join(", ");
+  const cand = Object.values(people).filter(p => !have.has(p.name.toLowerCase()));
+  $("#scorerChips").innerHTML = cand.length && TOTW && TOTW.open ? `<span class="hint" style="width:100%;margin:0">From your report:</span>` +
+    cand.map((p, i) => `<button type="button" data-i="${i}">+ ${p.num ? "#" + esc(p.num) + " " : ""}${esc(p.name)} (${esc(why(p))})</button>`).join("") : "";
+  $$("#scorerChips button").forEach(b => b.addEventListener("click", () => { const p = cand[+b.dataset.i];
+    nomRow({ name: p.name, num: p.num, why: why(p) }).querySelector(".nPos").focus(); }));
+}
+document.addEventListener("click", e => { if (e.target.matches("#noms .x")) { e.target.closest(".row").remove(); paintNoms(); } });
+document.addEventListener("change", e => { if (e.target.matches("#noms .nPos")) paintNoms(); });
+$("#addNom").addEventListener("click", () => nomRow().querySelector(".nPos").focus());
+function niceDay(iso) { const d = new Date(iso + "T12:00"); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
+function showTotw(t, goals) {
+  TOTW = t; TOTW_GOALS = goals || [];
+  const panel = $("#totwPanel"); panel.classList.toggle("hidden", !t);
+  if (!t) return;
+  $$("#noms .row").forEach(r => r.remove()); $("#totwMsg").innerHTML = "";
+  $("#totwTitle").textContent = `Nominate from ${t.club}`;
+  if (!t.played) {
+    panel.querySelector(".unlock").classList.add("hidden");
+    $("#totwInfo").textContent = "Team of the Week nominations are only for matches that were played."; $("#totwBody").classList.add("hidden"); return;
+  }
+  panel.querySelector(".unlock").classList.remove("hidden"); $("#totwBody").classList.remove("hidden");
+  (t.nominations || []).forEach(n => nomRow(n));
+  if (!t.open) {
+    $("#totwInfo").textContent = `Nominations for ${t.club} v ${t.opponent} (${niceDay(t.date)}) closed ${t.deadline}.`;
+    $$("#noms input, #noms select, #noms .x").forEach(el => el.disabled = true);
+    ["#addNom", "#saveNoms"].forEach(s => $(s).classList.add("hidden"));
+    if (!(t.nominations || []).length) $("#noms").innerHTML = `<p class="hint">No nominations were sent for this match.</p>`;
+    paintNoms(); return;
+  }
+  ["#addNom", "#saveNoms"].forEach(s => $(s).classList.remove("hidden"));
+  $("#totwInfo").innerHTML = `${esc(t.club)} v ${esc(t.opponent)}, ${esc(niceDay(t.date))}. Nominate <b>your own players</b> who stood out, and your head coach if deserved (one only).
+    One row per person. You can change these until <b>${esc(t.deadline)}</b>.`;
+  if (!(t.nominations || []).length) nomRow();
+  $("#saveNoms").textContent = (t.nominations || []).length ? "Update nominations" : "Submit nominations";
+  paintNoms();
+}
+$("#saveNoms").addEventListener("click", async () => {
+  const list = nomRows().filter(n => n.pos || n.name || n.why || n.num), errs = [], msg = $("#totwMsg");
+  $$("#noms .invalid").forEach(el => el.classList.remove("invalid"));
+  $$("#noms .row").forEach(r => {
+    const n = { pos: r.querySelector(".nPos").value, name: r.querySelector(".nNameIn").value.trim(), why: r.querySelector(".nWhyIn").value.trim() };
+    if (!n.pos && !n.name && !n.why) return;
+    if (!n.pos) r.querySelector(".nPos").classList.add("invalid");
+    if (!n.name) r.querySelector(".nNameIn").classList.add("invalid");
+    if (!n.why) r.querySelector(".nWhyIn").classList.add("invalid");
+  });
+  list.forEach((n, i) => { if (!n.pos || !n.name || !n.why) errs.push(`Nominee ${i + 1}: position, name and why are needed`); });
+  if (list.filter(n => n.pos === "Head coach").length > 1) errs.push("Only one head coach can be nominated");
+  if (list.filter(n => n.pos !== "Head coach").length > MAX_PLAYERS) errs.push(`Nominate at most ${MAX_PLAYERS} players`);
+  if (!list.length && !(TOTW.nominations || []).length) errs.push("Add at least one nominee");
+  if (errs.length) { msg.innerHTML = `<div class="notice err"><ul>${errs.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>`; return; }
+  const btn = $("#saveNoms"); btn.disabled = true; btn.textContent = "Sending…"; msg.innerHTML = "";
+  try {
+    const j = await api("saveNominations", TOTW.id, JSON.stringify(list));
+    if (!j || !j.ok) throw new Error((j && j.error) || "The server rejected the nominations.");
+    showTotw(j.totw, TOTW_GOALS);
+    const n = j.totw.nominations.length;
+    $("#totwMsg").innerHTML = `<div class="notice ok"><strong>${n ? `${n} nomination${n === 1 ? "" : "s"} saved.` : "Nominations removed."}</strong>
+      Your commissioner gets them after the deadline. A copy is on its way to your email.</div>`;
+  } catch (err) {
+    msg.innerHTML = `<div class="notice err"><strong>Not sent.</strong> ${esc(err.message || err)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = (TOTW.nominations || []).length ? "Update nominations" : "Submit nominations"; }
+});
+// ?totw=ID (link in the confirmation email): just the Team of the Week step for that report
+function openTotwLink(id) {
+  api("getClubReport", id).then(r => {
+    if (!r || !r.ok || !r.totw) {
+      const b = $("#editBanner"); b.classList.remove("hidden");
+      b.innerHTML = "<strong>That Team of the Week link didn't work.</strong> Submit your match report below – it unlocks your nominations."; return;
+    }
+    $("#doneTitle").textContent = "Team of the Week";
+    $("#doneHint").textContent = `${r.totw.club}'s report for this match is in${r.submittedOn ? " (submitted " + r.submittedOn + ")" : ""}.`;
+    showTotw(r.totw, (r.state || {}).goals);
+    $("#startAnother").textContent = "Report a match";
+    $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
+  }, () => {});
+}
 
 /* ---------- submit ---------- */
 $("#f").addEventListener("submit", e => {
@@ -542,7 +684,8 @@ async function send(warns) {
     }
     if (!j || !j.ok) throw new Error((j && j.error) || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-    if (val("editId")) $("#doneView h2").textContent = "Correction saved";
+    if (val("editId")) $("#doneTitle").textContent = "Correction saved";
+    showTotw(j.totw || null, payload.goals);
     $("#f").classList.add("hidden"); $("#doneView").classList.remove("hidden"); scrollTo(0, 0);
   } catch (err) {
     btn.disabled = false; btn.textContent = "Submit report";
@@ -557,7 +700,9 @@ $("#startAnother").addEventListener("click", () => {
   toggleOther("opponent"); paintChecks();
   const btn = $("#submitBtn"); btn.disabled = false; btn.textContent = "Submit report";
   $("#problems").innerHTML = ""; $("#sendStatus").innerHTML = ""; $("#editId").value = ""; $("#editBanner").classList.add("hidden");
-  $("#doneView h2").textContent = "Report submitted";
+  $("#doneTitle").textContent = "Report submitted"; $("#startAnother").textContent = "Report another match";
+  $("#doneHint").textContent = "Thanks – your report is in. The league office and your conference commissioner get a summary the next morning. A copy is on its way to your email, with a link to correct the report if you need to.";
+  showTotw(null);
   $("#doneView").classList.add("hidden"); $("#f").classList.remove("hidden"); scrollTo(0, 0); refresh();
 });
 </script>

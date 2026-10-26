@@ -17,6 +17,10 @@
  *     and any written comment. Issues for a conference with no commissioner set go to the office instead.
  * Cross-checks run at digest time, so a referee or club report that arrives later is still compared.
  *
+ * Team of the Week: submitting a report unlocks that club's TOTW nominations for the match (its own players
+ * and one head coach). Nominations can be changed until 12 pm on the Tuesday after the match; at that point
+ * sendTotwDigest() emails each conference commissioner the nominations, grouped by position.
+ *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
  * Updates: Deploy → Manage deployments → pencil → New version (keeps the same link).
@@ -79,7 +83,7 @@ function getSetup() {
 
 // The page can also be hosted outside Apps Script (e.g. GitHub Pages) and call these by plain POST –
 // no Google sign-in involved, so devices with several Google accounts signed in work fine.
-const API = { getSetup, submitClubReport, getClubReport, resendEditLink };
+const API = { getSetup, submitClubReport, getClubReport, resendEditLink, saveNominations };
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents), fn = API[body.action];
@@ -130,10 +134,13 @@ function submitClubReport(payloadJson) {
       to: d.email, name: 'APSL Club Reports',
       subject: `${edited ? 'Corrected' : 'Received'}: ${d.club} post-match report – ${d.home} v ${d.away} (${d.gameDate})`,
       body: `Thanks ${d.name} – the APSL office ${edited ? 'has your corrected' : 'received'} ${d.club}'s report.\n\n` +
+            (/^(not played|forfeit)/i.test(d.status || '') ? '' :
+              `Team of the Week: your report unlocked ${d.club}'s nominations for this match. Add or change them here until ` +
+              `${totwDeadlineText(d.gameDate)}:\n${totwLink(id)}\n\n`) +
             `Need to fix something? Use this link to correct it (it replaces your report – please don't submit a new one):\n${editLink(id)}\n\n` +
             `Your report:\n\n${d.report}`,
     });
-    return { ok: true };
+    return { ok: true, id, totw: totwFor(findReport(id)) };
   } catch (err) {
     console.error(err);
     return { ok: false, error: String(err.message || err) };
@@ -147,7 +154,7 @@ function getClubReport(id) {
   const r = rows.find((x, i) => i > 0 && String(x[C.ID]) === String(id));
   if (!r) return { ok: false };
   let state = {}; try { state = JSON.parse(r[C.STATE] || '{}'); } catch (e) {}
-  return { ok: true, state, submittedOn: fmtWhen(r[C.TS]) };
+  return { ok: true, state, submittedOn: fmtWhen(r[C.TS]), totw: totwFor(r) };
 }
 // Called by the page when a duplicate is blocked: emails the correction link to whoever filed the original.
 function resendEditLink(id) {
@@ -157,7 +164,8 @@ function resendEditLink(id) {
   MailApp.sendEmail({ to: r[1], name: 'APSL Club Reports',
     subject: `Correction link: ${r[C.CLUB]} post-match report (${isoDay(r[C.DATE])})`,
     body: `Someone tried to submit a second report for ${r[C.CLUB]} v ${r[C.OPP]} (${isoDay(r[C.DATE])}). ` +
-          `Each club can file one report per match. To change the report you submitted, use this link:\n${editLink(r[C.ID])}` });
+          `Each club can file one report per match. To change the report you submitted, use this link:\n${editLink(r[C.ID])}\n\n` +
+          `Team of the Week nominations for this match:\n${totwLink(r[C.ID])}` });
   return { ok: true, to: maskEmail(r[1]) };
 }
 function newId() {
@@ -169,6 +177,11 @@ function appUrl() {
   return CONFIG.WEB_APP_URL || ScriptApp.getService().getUrl().replace(/\/a\/macros\/[^/]+\//, '/macros/');
 }
 function editLink(id) { return `${appUrl()}?edit=${encodeURIComponent(id)}`; }
+function totwLink(id) { return `${appUrl()}?totw=${encodeURIComponent(id)}`; }
+function findReport(id) {
+  const rows = getLog().getSheets()[0].getDataRange().getValues();
+  return rows.find((x, i) => i > 0 && id && String(x[C.ID]) === String(id)) || null;
+}
 function maskEmail(e) { const [u, dom] = String(e || '').split('@'); return dom ? `${u.slice(0, 2)}${'•'.repeat(Math.max(1, u.length - 2))}@${dom}` : ''; }
 function fmtWhen(d) { try { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'EEE MMM d, h:mm a'); } catch (e) { return ''; } }
 
@@ -371,6 +384,149 @@ function footerHtml() {
   return `<p style="font:12px Arial;color:#5f6675;margin-top:16px">Full answers, goals and assists are in the ${url ? `<a href="${url}">Club Post-Match Reports</a>` : 'Club Post-Match Reports'} sheet.</p>`;
 }
 
+/* ---------------- Team of the Week ---------------- */
+// Unlocked by a club's match report: the club nominates its own players (and at most one head coach) from that match.
+const TOTW_POS = ['GK', 'DEF', 'MID', 'FWD', 'Head coach'];
+const TOTW_MAX_PLAYERS = 11;
+// TOTW Nominations tab: 0 Received | 1 Conference | 2 Week (deadline Tuesday) | 3 Match date | 4 Club | 5 Opponent |
+// 6 Position | 7 Name | 8 # | 9 Why | 10 Submitted by | 11 Email | 12 Report ID | 13 Home team | 14 Sent to commissioner
+const T = { TS: 0, CONF: 1, WEEK: 2, DATE: 3, CLUB: 4, OPP: 5, POS: 6, NAME: 7, NUM: 8, WHY: 9, BY: 10, EMAIL: 11, ID: 12, HOME: 13, SENT: 14 };
+
+function getTotwSheet() {
+  const ss = getLog();
+  let sh = ss.getSheetByName('TOTW Nominations');
+  if (!sh) {
+    sh = ss.insertSheet('TOTW Nominations');
+    sh.appendRow(['Received', 'Conference', 'Week (deadline Tue)', 'Match date', 'Club', 'Opponent', 'Position', 'Name', '#',
+      'Why', 'Submitted by', 'Email', 'Report ID', 'Home team', 'Sent to commissioner']);
+    sh.getRange('C:D').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+// Nominations close at 12 pm (script time zone) on the first Tuesday after the match.
+function totwDeadline(matchDay) {
+  const [y, m, d] = isoDay(matchDay).split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  do t.setUTCDate(t.getUTCDate() + 1); while (t.getUTCDay() !== 2);
+  const week = t.toISOString().slice(0, 10);
+  return { week, at: Utilities.parseDate(week + ' 12:00', Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') };
+}
+function totwDeadlineText(matchDay) {
+  try { return Utilities.formatDate(totwDeadline(matchDay).at, Session.getScriptTimeZone(), "EEEE MMM d 'at' h:mm a z"); } catch (e) { return 'Tuesday at 12 pm'; }
+}
+// What the page needs to show the Team of the Week step for one report.
+function totwFor(r) {
+  if (!r) return null;
+  const { week, at } = totwDeadline(r[C.DATE]);
+  const played = !/^(not played|forfeit)/i.test(String(r[C.STATUS] || ''));
+  const nominations = getTotwSheet().getDataRange().getValues().slice(1).filter(x => String(x[T.ID]) === String(r[C.ID]))
+    .map(x => ({ pos: String(x[T.POS]), name: String(x[T.NAME]), num: String(x[T.NUM] || ''), why: String(x[T.WHY] || '') }));
+  return { id: String(r[C.ID]), played, open: played && new Date() < at, deadline: totwDeadlineText(r[C.DATE]), week,
+    club: String(r[C.CLUB]), opponent: String(r[C.OPP]), date: isoDay(r[C.DATE]), conf: String(r[C.CONF]), nominations };
+}
+// Called by the page. Replaces this report's nominations with the list given (an empty list removes them).
+function saveNominations(id, listJson) {
+  try {
+    const list = JSON.parse(listJson || '[]');
+    if (!Array.isArray(list)) throw new Error('Nominations should be a list.');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const r = findReport(id);
+      if (!r) throw new Error("We couldn't find your match report. Submit the report first – that unlocks Team of the Week.");
+      const info = totwFor(r);
+      if (!info.played) throw new Error('Team of the Week nominations need a match that was played.');
+      if (!info.open) throw new Error(`Nominations for this match closed ${info.deadline}.`);
+      const clean = list.map(n => ({ pos: String(n.pos || '').trim(), name: String(n.name || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+        num: String(n.num || '').trim().slice(0, 4), why: String(n.why || '').trim().slice(0, 300) }));
+      clean.forEach((n, i) => {
+        if (!TOTW_POS.includes(n.pos)) throw new Error(`Nominee ${i + 1}: pick a position.`);
+        if (!n.name) throw new Error(`Nominee ${i + 1}: the name is missing.`);
+        if (!n.why) throw new Error(`Nominee ${i + 1}: say what they did.`);
+      });
+      if (clean.filter(n => n.pos === 'Head coach').length > 1) throw new Error('Only one head coach can be nominated.');
+      if (clean.filter(n => n.pos !== 'Head coach').length > TOTW_MAX_PLAYERS) throw new Error(`Nominate at most ${TOTW_MAX_PLAYERS} players.`);
+      const names = clean.map(n => key(n.name));
+      if (names.some((x, i) => names.indexOf(x) !== i)) throw new Error('The same person is listed twice.');
+
+      const sh = getTotwSheet(), data = sh.getDataRange().getValues();
+      for (let i = data.length - 1; i >= 1; i--) if (String(data[i][T.ID]) === String(id)) sh.deleteRow(i + 1);
+      clean.forEach(n => sh.appendRow([new Date(), r[C.CONF], info.week, isoDay(r[C.DATE]), r[C.CLUB], r[C.OPP], n.pos, n.name, n.num,
+        n.why, r[C.NAME], r[1], String(id), homeOf(r), '']));
+    } finally { lock.releaseLock(); }
+
+    const r = findReport(id), info = totwFor(r);
+    if (isEmail(r[1])) MailApp.sendEmail({ to: r[1], name: 'APSL Club Reports',
+      subject: `Team of the Week: ${info.nominations.length} nomination${info.nominations.length === 1 ? '' : 's'} saved – ${r[C.CLUB]} (${isoDay(r[C.DATE])})`,
+      body: (info.nominations.length ? info.nominations.map(n => `  ${n.pos}: ${n.name}${n.num ? ' #' + n.num : ''} – ${n.why}`).join('\n')
+        : '  (no nominations)') + `\n\nYou can change these until ${info.deadline}:\n${totwLink(id)}` });
+    return { ok: true, totw: info };
+  } catch (err) {
+    console.error(err);
+    return { ok: false, error: String(err.message || err) };
+  }
+}
+
+// Runs Tuesdays at 12 pm (trigger installed by setup). Sends each commissioner the nominations whose deadline has
+// passed and that haven't been sent yet. Conferences with no commissioner email go to the office. Safe to run by hand.
+function sendTotwDigest() {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const sh = getTotwSheet(), rows = sh.getDataRange().getValues().slice(1), now = new Date();
+    const due = rows.map((r, i) => i).filter(i => rows[i][T.NAME] && !rows[i][T.SENT] && totwDeadline(rows[i][T.DATE]).at <= now);
+    if (!due.length) return { sent: 0 };
+    const office = [CONFIG.OFFICE_EMAIL, CONFIG.CC].filter(Boolean).join(',');
+    const byTo = {};
+    due.forEach(i => {
+      const r = rows[i], to = commissionersFor(r[T.CONF], r[T.HOME]) || office;
+      (byTo[to] = byTo[to] || []).push(r);
+    });
+    Object.entries(byTo).forEach(([to, list]) => {
+      const confs = [...new Set(list.map(r => String(r[T.CONF])))].sort();
+      const weeks = [...new Set(list.map(r => String(r[T.WEEK])))].sort();
+      const short = c => c.replace(/\s*\(.*\)$/, '').replace(/ Conference/, '');
+      MailApp.sendEmail({ to, name: 'APSL Club Reports',
+        subject: `Team of the Week nominations – ${confs.map(short).join(', ')} (${list.length}, week of ${weeks.map(niceDate).join(', ')})`,
+        htmlBody: totwHtml(confs, list) + footerHtml(), body: totwText(confs, list) });
+    });
+    const stamp = new Date();
+    due.forEach(i => sh.getRange(i + 2, T.SENT + 1).setValue(stamp));
+    return { sent: Object.keys(byTo).length, nominations: due.length };
+  } finally { lock.releaseLock(); }
+}
+function totwGroups(confs, list) {
+  return confs.map(conf => {
+    const mine = list.filter(r => String(r[T.CONF]) === conf);
+    return { conf, clubs: [...new Set(mine.map(r => String(r[T.CLUB])))].sort(),
+      byPos: TOTW_POS.map(pos => [pos, mine.filter(r => r[T.POS] === pos)]).filter(([, rs]) => rs.length) };
+  });
+}
+const totwLine = r => `${r[T.NAME]}${r[T.NUM] ? ' #' + r[T.NUM] : ''} – ${r[T.CLUB]}: ${r[T.WHY]} (v ${r[T.OPP]}, ${niceDate(isoDay(r[T.DATE]))})`;
+function totwText(confs, list) {
+  const out = ['Team of the Week nominations from club post-match reports.', ''];
+  totwGroups(confs, list).forEach(g => {
+    out.push(g.conf.toUpperCase());
+    g.byPos.forEach(([pos, rs]) => { out.push(`  ${pos}`); rs.forEach(r => out.push(`    ${totwLine(r)}`)); });
+    out.push(`  Nominated by: ${g.clubs.join(', ')}`, '');
+  });
+  return out.join('\n').trim();
+}
+function totwHtml(confs, list) {
+  const h = escapeHtml;
+  let out = '<h2 style="font:800 18px Arial;color:#003da6;margin:0 0 4px">Team of the Week nominations</h2>' +
+    '<p style="font:13px Arial;color:#5f6675;margin:0 0 6px">From club post-match reports. Clubs nominate their own players.</p>';
+  totwGroups(confs, list).forEach(g => {
+    out += `<h3 style="font:700 14px Arial;text-transform:uppercase;letter-spacing:.04em;color:#1f1f1f;margin:18px 0 6px;border-bottom:2px solid #ec0332;padding-bottom:3px">${h(g.conf)}</h3>`;
+    g.byPos.forEach(([pos, rs]) => {
+      out += `<div style="font:700 13px Arial;color:#003da6;margin:10px 0 4px">${h(pos)}</div><ul style="margin:0;padding-left:18px;font:14px/1.45 Arial">` +
+        rs.map(r => `<li><b>${h(r[T.NAME])}${r[T.NUM] ? ' #' + h(r[T.NUM]) : ''}</b> – ${h(r[T.CLUB])}: ${h(r[T.WHY])} ` +
+          `<span style="color:#5f6675">(v ${h(r[T.OPP])}, ${h(niceDate(isoDay(r[T.DATE])))})</span></li>`).join('') + '</ul>';
+    });
+    out += `<p style="font:12px Arial;color:#5f6675;margin:8px 0 0">Nominated by: ${h(g.clubs.join(', '))}</p>`;
+  });
+  return out;
+}
+
 /* ---------------- storage ---------------- */
 function getRootFolder() {
   const props = PropertiesService.getScriptProperties();
@@ -452,8 +608,10 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 
 // Run once from the editor to grant permissions and create the folder, log and settings sheets.
 function setup() {
-  getRootFolder(); getLog(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
+  getRootFolder(); getLog(); getTotwSheet(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'sendDailyDigest').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('sendDailyDigest').timeBased().atHour(CONFIG.DIGEST_HOUR).everyDays(1).create();
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'sendTotwDigest').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sendTotwDigest').timeBased().onWeekDay(ScriptApp.WeekDay.TUESDAY).atHour(12).create();
   if (CONFIG.REF_LOG_SHEET_ID) SpreadsheetApp.openById(CONFIG.REF_LOG_SHEET_ID).getName();   // confirms access to the referee log
 }
