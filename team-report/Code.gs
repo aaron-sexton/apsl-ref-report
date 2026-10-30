@@ -27,8 +27,8 @@
  */
 
 const CONFIG = {
-  OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
-  CC: '',                                    // extra addresses on every report, comma-separated
+  OFFICE_EMAIL: 'office@apslsoccer.com',
+  CC: 'info@apslsoccer.com',                 // cc'd on every office email, comma-separated
   WEB_APP_URL: 'https://aaron-sexton.github.io/apsl-ref-report/team-report/',                         // link used in emailed correction links – set to the form's public address
                                              // (e.g. the GitHub Pages page or a tinyurl). Blank = this script's /exec link.
   ROOT_FOLDER_NAME: 'APSL Club Post-Match Reports',
@@ -288,8 +288,7 @@ function sendDailyDigest() {
       to.forEach(e => (byCommish[e] = byCommish[e] || []).push(m));
     });
     const when = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEE MMM d');
-    const office = [CONFIG.OFFICE_EMAIL, CONFIG.CC].filter(Boolean).join(',');
-    MailApp.sendEmail({ to: office, name: 'APSL Club Reports',
+    MailApp.sendEmail({ to: CONFIG.OFFICE_EMAIL, cc: CONFIG.CC, name: 'APSL Club Reports',
       subject: `APSL final scores – ${matches.length} match${matches.length === 1 ? '' : 'es'} (${when})` +
         (matches.some(m => m.mismatch) ? ' [SCORE MISMATCH]' : '') + (officeIssues.length ? ` [${officeIssues.length} need a commissioner]` : ''),
       htmlBody: digestHtml('Final scores from club reports', matches, false) +
@@ -477,7 +476,7 @@ function sendTotwDigest() {
     const sh = getTotwSheet(), rows = sh.getDataRange().getValues().slice(1), now = new Date();
     const due = rows.map((r, i) => i).filter(i => rows[i][T.NAME] && !rows[i][T.SENT] && totwDeadline(rows[i][T.DATE]).at <= now);
     if (!due.length) return { sent: 0 };
-    const office = [CONFIG.OFFICE_EMAIL, CONFIG.CC].filter(Boolean).join(',');
+    const office = CONFIG.OFFICE_EMAIL;
     const byTo = {};
     due.forEach(i => {
       const r = rows[i], to = commissionersFor(r[T.CONF], r[T.HOME]) || office;
@@ -487,7 +486,7 @@ function sendTotwDigest() {
       const confs = [...new Set(list.map(r => String(r[T.CONF])))].sort();
       const weeks = [...new Set(list.map(r => String(r[T.WEEK])))].sort();
       const short = c => c.replace(/\s*\(.*\)$/, '').replace(/ Conference/, '');
-      MailApp.sendEmail({ to, name: 'APSL Club Reports',
+      MailApp.sendEmail({ to, ...(to === office && CONFIG.CC ? { cc: CONFIG.CC } : {}), name: 'APSL Club Reports',
         subject: `Team of the Week nominations – ${confs.map(short).join(', ')} (${list.length}, week of ${weeks.map(niceDate).join(', ')})`,
         htmlBody: totwHtml(confs, list) + footerHtml('totw'), body: totwText(confs, list) });
     });

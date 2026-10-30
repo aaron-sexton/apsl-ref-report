@@ -17,8 +17,8 @@
  */
 
 const CONFIG = {
-  OFFICE_EMAIL: 'sextonaaron12@gmail.com',   // TESTING – change to 'office@apslsoccer.com'
-  CC: '',                                    // e.g. 'assignor1@example.com,assignor2@example.com'
+  OFFICE_EMAIL: 'office@apslsoccer.com',
+  CC: 'info@apslsoccer.com',                 // cc'd on every report (assignors and commissioners are added per match)
   ROOT_FOLDER_NAME: 'APSL Referee Reports',
   MAX_TOTAL_BYTES: 22 * 1024 * 1024,         // Gmail caps attachments at 25 MB
   REMINDER_AFTER_HOURS: 18,                  // one reminder if the report isn't in by then (due within 24h)
