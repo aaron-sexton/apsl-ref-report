@@ -588,15 +588,34 @@ function rows(kind) {
 })));
 
 /* ---------- files ---------- */
+const SLOT_NAME = { home: "home roster", away: "away roster", supp: "supplemental report" };
+const dupMsg = {};   // per-slot message about a file that was already added
 $$("input[type=file]").forEach(inp => inp.addEventListener("change", async () => {
   const slot = inp.dataset.slot;
+  dupMsg[slot] = "";
   for (const f of inp.files) {
+    const fp = await fingerprint(f);
+    const where = Object.keys(files).find(k => files[k].some(p => p.fp === fp));
+    if (where) {   // the exact same file is already attached – most likely the wrong roster was picked
+      dupMsg[slot] = where === slot ? `“${f.name}” is already added here.`
+        : `That's the same file you added for the ${SLOT_NAME[where]}. ` +
+          (slot === "home" || slot === "away" ? `Add a photo of the ${slot === "home" ? val("home") || "home team" : val("away") || "away team"}'s own roster sheet.` : "It wasn't added again.");
+      continue;
+    }
     const prepared = await prepareFile(f);
+    prepared.fp = fp;
     files[slot].push(prepared);
   }
   inp.value = "";
   renderThumbs(slot); refresh();
 }));
+// Identifies a file by its content (SHA-256), so the same photo picked twice is caught even if renamed.
+async function fingerprint(f) {
+  try {
+    const h = await crypto.subtle.digest("SHA-256", await f.arrayBuffer());
+    return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) { return `${f.name}|${f.size}|${f.lastModified}`; }
+}
 
 async function prepareFile(f) {
   if (f.type.startsWith("image/") && f.type !== "image/gif") {
@@ -623,13 +642,16 @@ function loadImage(f) {
 function renderThumbs(slot) {
   const box = $(`[data-thumbs="${slot}"]`);
   box.innerHTML = "";
+  let note = box.nextElementSibling && box.nextElementSibling.matches(".dupmsg") ? box.nextElementSibling : null;
+  if (!note) { note = document.createElement("div"); note.className = "notice err dupmsg"; box.insertAdjacentElement("afterend", note); }
+  note.textContent = dupMsg[slot] || ""; note.classList.toggle("hidden", !dupMsg[slot]);
   files[slot].forEach((p, i) => {
     const d = document.createElement("div"); d.className = "thumb";
     d.innerHTML = (p.kind === "img" ? `<img alt="">` : `<div class="pdf">${p.kind === "pdf" ? "PDF" : "FILE"}</div>`) +
       `<div class="meta"></div><button type="button" aria-label="Remove">✕</button>`;
     if (p.kind === "img") d.querySelector("img").src = p.url;
     d.querySelector(".meta").textContent = mb(p.file.size) + " · " + p.file.name;
-    d.querySelector("button").onclick = () => { files[slot].splice(i, 1); renderThumbs(slot); refresh(); };
+    d.querySelector("button").onclick = () => { files[slot].splice(i, 1); dupMsg[slot] = ""; renderThumbs(slot); refresh(); };
     box.appendChild(d);
   });
 }
@@ -751,6 +773,7 @@ function validate() {
   const noShow = val("status") === "Forfeit" ? val("forfeitTeam") : "";      // the forfeiting team may have no roster to photograph
   if (!notPlayed && noShow !== "home" && !files.home.length) errors.push("Home roster sheet photo is missing");
   if (!notPlayed && noShow !== "away" && !files.away.length) errors.push("Away roster sheet photo is missing");
+  if (files.home.some(h => files.away.some(a => a.fp && a.fp === h.fp))) errors.push("The home and away roster photos are the same file – add each team's own roster sheet");
   const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
   if (tb > cap) errors.push(`Attachments total ${mb(tb)} – remove something to get under ${CONFIG.totalUploadMB} MB`);
 

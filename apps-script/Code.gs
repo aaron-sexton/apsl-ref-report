@@ -103,6 +103,11 @@ function handle(data) {
   try {
     if (data.website) return { ok: true };                   // honeypot – silently drop bots
     validate(data);
+    // The same photo attached as both rosters (usually the wrong file picked from the gallery).
+    const rosterData = side => (data.files || []).filter(x => new RegExp(`_${side}-roster_`).test(x.name)).map(x => x.data);
+    const away = rosterData('AWAY');
+    if (rosterData('HOME').some(d => away.includes(d)))
+      throw new Error("The home and away roster photos are the same file. Go back and add each team's own roster sheet.");
 
     const root = getRootFolder();
     const f = data.fields;
