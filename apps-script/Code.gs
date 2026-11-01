@@ -403,27 +403,29 @@ function processFines() {
 function fineNotice(r, type, n, amount) {
   const club = r[FN.CLUB - 1], date = String(r[FN.DATE - 1]).slice(0, 10), match = `${r[FN.HOME - 1]} v ${r[FN.AWAY - 1]}`;
   const due = Utilities.formatDate(new Date(Date.now() + CONFIG.FINES.PAY_DAYS * 864e5), Session.getScriptTimeZone(), 'EEEE, MMMM d, yyyy');
-  const items = String(r[FN.DETAILS - 1] || '').split(' | ').filter(Boolean);
+  // The club sees only which items failed, not the referee's own wording (that stays on the Fines sheet).
+  const reported = String(r[FN.DETAILS - 1] || '').split(' | ').filter(Boolean);
+  const items = [...new Set(reported.map(x => Object.values(ITEM_LABEL).find(l => x === l || x.startsWith(l + ':')) || x.split(':')[0].trim()))];
   const warning = amount === 0;
   const subject = warning ? `APSL Warning – ${club}: ${type.label} (${match}, ${date})`
     : `APSL Fine Notice – ${club}: $${amount} – ${type.label} (${match}, ${date})`;
   const ladderNote = type.ladder ? `Under ${type.section}, a first offense is a warning, the second is a $50 fine, the third $100, and each offense after that doubles.` : '';
   const para = [
     `To ${club},`,
-    `The referee's report for ${match} on ${date} (${r[FN.CONF - 1]}) recorded that the following requirement was not met:`,
+    `The referee's report for ${match} on ${date} (${r[FN.CONF - 1]}) recorded that the following ${items.length > 1 ? 'requirements were' : 'requirement was'} not met:`,
     `ITEMS`,
     `This is ${club}'s ${ordinal(n)} offense this season for ${type.noun}.`,
     warning ? `This notice is a formal warning; there is no fine this time. ${ladderNote}`
       : `Fine: $${amount} (${type.section}). Payment is due within ${CONFIG.FINES.PAY_DAYS} days, by ${due} (§1.4.2); a $30 late fee may apply after that. ${CONFIG.FINES.PAYMENT_NOTE}` + (ladderNote ? `\n\n${ladderNote}` : ''),
     `If you believe this is incorrect, reply to this email. Appeals follow §8.6 of the APSL Regulations & Club Manual.`,
     `APSL League Office`];
-  const text = para.join('\n\n').replace('ITEMS', items.map(x => '  • ' + x).join('\n')) + `\n\nRef: ${r[FN.ID - 1]}`;
+  const text = para.join('\n\n').replace('ITEMS', items.map(x => '  • ' + x).join('\n'));
   const h = escapeHtml;
   const html = `<div style="font:14px/1.5 Arial;color:#1f1f1f;max-width:620px">` +
     `<div style="border-bottom:3px solid #ec0332;padding-bottom:6px;margin-bottom:12px;font:800 16px Arial;color:#003da6">APSL ${warning ? 'Warning' : 'Fine Notice'}</div>` +
     para.map(p => p === 'ITEMS' ? `<ul style="margin:0 0 12px;padding-left:20px">${items.map(x => `<li>${h(x)}</li>`).join('')}</ul>`
       : `<p style="margin:0 0 12px">${h(p).replace(/\n\n/g, '</p><p style="margin:0 0 12px">').replace(/^(Fine: \$\d+)/, '<b>$1</b>')}</p>`).join('') +
-    `<p style="font-size:12px;color:#5f6675">Ref: ${h(r[FN.ID - 1])}</p></div>`;
+    `</div>`;
   return { subject, text, html };
 }
 // Contact emails for a club (Clubs tab, column C). Conference rows match like the Assignors tab.
