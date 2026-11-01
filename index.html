@@ -217,6 +217,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:8px 16px 24px
 <section class="card">
   <h2><span class="n">3</span>Pre-match checklist</h2>
   <p class="hint">Walk the field and check each item before kickoff. Tap <b>OK</b> or <b>Problem</b> – a problem needs a few words. Section numbers refer to the APSL Regulations &amp; Club Manual.</p>
+  <div id="lateNote" class="notice warn hidden" role="status"></div>
   <div id="preList" class="pm-list"></div>
 </section>
 
@@ -868,7 +869,19 @@ function buildReport() {
 
 /* ---------- UI refresh, drafts ---------- */
 let saveT;
+// Opened after the scheduled kickoff without a saved checklist: nudge toward doing it at the field next time.
+function paintLateNote() {
+  const el = $("#lateNote"), ko = koDate(), mins = ko ? Math.round((Date.now() - ko) / 60000) : NaN;
+  const late = mins > 0 && mins < 7 * 24 * 60 && !val("pmClientAt") && val("pmSkipped") !== "1";
+  el.classList.toggle("hidden", !late);
+  if (!late) return;
+  const ago = mins < 90 ? `${mins} minute${mins === 1 ? "" : "s"} ago` : mins < 36 * 60 ? `about ${Math.round(mins / 60)} hours ago` : `${Math.round(mins / 1440)} days ago`;
+  el.innerHTML = mins < 120
+    ? `<strong>Kickoff was ${ago}.</strong> The checklist is meant to be done before kickoff, while you walk the field. Fill it in from what you saw – the time you save it is noted in your report.`
+    : `<strong>This match kicked off ${ago}.</strong> The pre-match checklist should be saved before kickoff – next time, open this form at the field and save step 1 before the match starts. Fill it in from what you saw; the time you save it is noted in your report.`;
+}
 function refresh() {
+  paintLateNote();
   const tb = totalBytes(), cap = CONFIG.totalUploadMB * 1048576;
   $("#budgetText").textContent = `${mb(tb)} of ${CONFIG.totalUploadMB} MB used`;
   $("#budgetBar").style.width = Math.min(100, tb / cap * 100) + "%";
