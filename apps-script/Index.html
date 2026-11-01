@@ -455,7 +455,7 @@ const PRE_ITEMS = [
   { k: "physio", r: "Home physio & medical kit", t: "Home team physio and medical kit present", s: "§4.2.1, §8.3.2", extra: "physio" },
   { k: "water", r: "Water for referees", t: "Water for the referees", s: "§4.2.1" },
   { k: "fees", r: "Referee fees paid before kickoff", t: "Referee fees paid in full before kickoff", s: "§3.1.4", extra: "fees" },
-  { k: "rosters", r: "Roster forms & ID checks", t: "Both roster forms: league-printed, dated within 48 hours, clear photos, copy to the other team – and IDs checked", s: "§4.2.2" },
+  { k: "rosters", r: "Roster forms & ID checks", t: "Both roster forms: league-printed, dated within 48 hours, clear photos, copy to the other team – and IDs checked", s: "§4.2.2", extra: "roster" },
   { k: "kits", r: "Kits, bibs & sub cards", t: "Kits: no clash, matching, captain armbands, APSL sleeve logo; subs in bibs with sub cards", s: "§4.2.3–4.2.5" },
   { k: "coaches", r: "Coaches present", t: "Each team has a coach present", s: "§4.2.1" },
 ];
@@ -475,6 +475,9 @@ function itemHTML(it) {
   else if (it.extra === "ready") detail = `<div class="pm-extra">
       <div><label for="readyTeam">Which team wasn't ready?</label><select id="readyTeam"><option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
       <div><label for="pmd_ready">Details</label><input id="pmd_ready" placeholder="e.g. 7th player arrived 12 min late"></div></div>`;
+  else if (it.extra === "roster") detail = `<div class="pm-extra">
+      <div><label for="rosterTeam">Which team's roster?</label><select id="rosterTeam"><option value="">Select…</option><option value="home">Home</option><option value="away">Away</option><option value="both">Both</option></select></div>
+      <div><label for="pmd_rosters">What was wrong?</label><input id="pmd_rosters" placeholder="e.g. hand-written, dated last week, no copy for us"></div></div>`;
   else detail = `<div class="pm-extra"><div class="full"><input id="pmd_${it.k}" placeholder="What was wrong?"></div></div>`;
   return `<div class="pm" data-k="${it.k}">
     <div class="pm-q"><span>${it.t}<small>${it.s}</small></span>
@@ -506,6 +509,7 @@ function feesText() {
 }
 function itemDetail(it) {
   if (it.extra === "fees") return feesText();
+  if (it.extra === "roster") return (val("rosterTeam") ? (val("rosterTeam") === "both" ? "Both teams" : teamName(val("rosterTeam"))) + ": " : "") + val("pmd_rosters");
   if (it.extra === "ready") return (val("readyTeam") ? (val("readyTeam") === "both" ? "Both teams" : teamName(val("readyTeam"))) + " not ready" : "") + (val("pmd_ready") ? " – " + val("pmd_ready") : "");
   return val("pmd_" + it.k);
 }
@@ -517,6 +521,10 @@ function itemErrors(items, markBad) {
     if (v === "problem") {
       if (it.extra === "fees") { if (!val("feeStatus")) markBad("feeStatus", out, "Referee fees: pick what happened"); if (!val("paidNote")) markBad("paidNote", out, "Referee fees: add payment details (§3.1.4)"); }
       else if (it.extra === "ready") { if (!val("readyTeam")) markBad("readyTeam", out, "Kickoff: pick which team wasn't ready"); }
+      else if (it.extra === "roster") {
+        if (!val("rosterTeam")) markBad("rosterTeam", out, "Roster forms: pick which team's roster had the problem");
+        if (val("pmd_rosters").length < 3) markBad("pmd_rosters", out, "Checklist: describe the problem with “Roster forms & ID checks”");
+      }
       else if (val("pmd_" + it.k).length < 3) markBad("pmd_" + it.k, out, `Checklist: describe the problem with “${it.r}”`);
     }
     if (it.extra === "physio" && v === "ok" && !val("physioHome")) markBad("physioHome", out, "Enter the home team physio's name");
@@ -1091,7 +1099,8 @@ async function send(warns) {
     const fields = {};
     ["gameDate","kickoff","division","venue","home","away","homeScore","awayScore","refName","refRole","refId","refPhone","refEmail"].forEach(k => fields[k] = val(k));
     fields.status = statusText();
-    const payload = { prematchId: val("pmId"), fields, report: buildReport(), files: out, supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
+    const checks = Object.fromEntries([...PRE_ITEMS, ...KO_ITEMS].map(it => [it.k, { v: pmVal(it.k), d: itemDetail(it) }]));
+    const payload = { prematchId: val("pmId"), fields, report: buildReport(), files: out, checks, rosterTeam: pmVal("rosters") === "problem" ? val("rosterTeam") : "", supplementalReasons: suppReasons().join(", "), warnings: warns.join(" | "), website: val("website") };
     const j = await api("submitReport", JSON.stringify(payload));
     if (!j.ok) throw new Error(j.error || "The server rejected the report.");
     try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}

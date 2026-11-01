@@ -10,7 +10,12 @@
  * Before kickoff, referees save a pre-match checklist (step 1). It goes to the "Pre-match" tab of the
  * log sheet, and the referee gets an emailed link to finish the report (step 2) on any device. If no
  * report arrives REMINDER_AFTER_HOURS after kickoff, sendReminders() (hourly trigger) emails the link again.
- * The form's conference and team dropdowns come from the settings sheet's Clubs tab (Conference | Club).
+ * The form's conference and team dropdowns come from the settings sheet's Clubs tab (Conference | Club | Contact emails).
+ *
+ * Fines: when a report marks a physio, home-ground-standard or roster-form problem, a fine is drafted on the "Fines"
+ * tab of the log and the office (cc info@) and the conference commissioner get a heads-up. After FINES.HOLD_HOURS it
+ * is emailed to the club (hourly processFines trigger) unless its Status was changed to Rejected. Offense counts,
+ * warnings and amounts follow §8.3.2 / §8.3.3 (warning, $50, $100, then doubling) and a flat roster-form fine (§4.2.2).
  *
  * Files in this project: Code.gs (this) and an HTML file named Index (the form page).
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
@@ -25,7 +30,24 @@ const CONFIG = {
   WEB_APP_URL: 'https://aaron-sexton.github.io/apsl-ref-report/',                         // link used in emailed resume links – set to the form's public address
                                              // (e.g. the GitHub Pages page or tinyurl). Blank = this script's /exec link.
   SUPPLEMENTAL_TEMPLATE_NAME: 'Supplemental Referee Report (blank).pdf',   // put this file in the root folder
+  FINES: {
+    ENABLED: true,
+    HOLD_HOURS: 48,               // time to review (and reject) a drafted fine before it is emailed to the club
+    SEASON_START: '2026-07-01',   // offenses are counted per club from this match date
+    ROSTER_FINE: 25,              // §4.2.2 improper roster form – flat, every offense
+    PAY_DAYS: 14,                 // §1.4.2
+    PAYMENT_NOTE: 'Reply to this email for payment instructions.',
+  },
 };
+
+// What a checklist problem can be fined for. Items are the referee form's checklist keys.
+const FINE_TYPES = [
+  { cat: 'physio', label: 'No physio / medical personnel', noun: 'missing physio / medical personnel', section: '§8.3.2', team: 'home', items: ['physio'], ladder: true },
+  { cat: 'ground', label: 'Home ground / matchday standards', noun: 'home ground / matchday standards', section: '§8.3.3', team: 'home', items: ['field', 'goals', 'balls', 'benches', 'water'], ladder: true },
+  { cat: 'roster', label: 'Improper roster form', noun: 'an improper roster form', section: '§4.2.2', team: 'rosterTeam', items: ['rosters'], ladder: false },
+];
+const ITEM_LABEL = { physio: 'Home physio & medical kit', field: 'Field marking, size & enclosure', goals: 'Goals, nets & corner flags',
+  balls: 'At least 6 match balls', benches: 'Benches, technical areas & referee table', water: 'Water for referees', rosters: 'Roster forms' };
 
 // Serves the referee form. The web app URL is the link you give referees.
 function doGet() {
@@ -69,12 +91,13 @@ function getSupplementalTemplate() {
   const blob = files.next().getBlob();
   return { ok: true, name: CONFIG.SUPPLEMENTAL_TEMPLATE_NAME, type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
 }
+const CLUB_EMAIL_HEADER = 'Contact email(s) for fine notices, comma-separated';
 function getClubsSheet() {
   const ss = getSettings();
   let sh = ss.getSheetByName('Clubs');
   if (!sh) {
     sh = ss.insertSheet('Clubs');
-    sh.appendRow(['Conference', 'Club']);
+    sh.appendRow(['Conference', 'Club', CLUB_EMAIL_HEADER]);
     const rows = [];
     Object.entries(DEFAULT_CLUBS).forEach(([c, clubs]) => clubs.forEach(club => rows.push([c, club])));
     sh.getRange(2, 1, rows.length, 2).setValues(rows);
@@ -145,6 +168,9 @@ function handle(data) {
     const cc = [CONFIG.CC, assignors].filter(Boolean).join(',');
     if (cc) mail.cc = cc;
     MailApp.sendEmail(mail);
+
+    // Draft any fines (sent to the club after the review hold)
+    if (CONFIG.FINES.ENABLED) { try { queueFines(data, gameFolder.getUrl()); } catch (e) { console.error('queueFines', e); } }
 
     // Referee confirmation
     if (isEmail(f.refEmail)) {
@@ -255,6 +281,165 @@ function appUrl() {
 function resumeLink(id) { return `${appUrl()}?r=${encodeURIComponent(id)}`; }
 function fmt(d) { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'EEE MMM d, h:mm a z'); }
 
+/* ---------------- fines ---------------- */
+// Fines tab columns (1-based)
+const FN = { CREATED: 1, STATUS: 2, SEND_AFTER: 3, CONF: 4, DATE: 5, HOME: 6, AWAY: 7, CLUB: 8, OFFENSE: 9, SECTION: 10,
+             DETAILS: 11, REF: 12, FOLDER: 13, NTH: 14, AMOUNT: 15, OVERRIDE: 16, SENT_TO: 17, SENT_AT: 18, ID: 19, NOTES: 20, CAT: 21 };
+function getFinesSheet() {
+  const ss = getLog();
+  let sh = ss.getSheetByName('Fines');
+  if (!sh) {
+    sh = ss.insertSheet('Fines');
+    sh.appendRow(['Drafted', 'Status (change to Rejected to stop)', 'Sends after', 'Conference', 'Match date', 'Home', 'Away', 'Club',
+      'Offense', 'Section', 'Referee reported', 'Referee', 'Report folder', 'Offense # this season', 'Amount ($)',
+      'Amount override ($)', 'Sent to', 'Sent at', 'Fine ID', 'Office notes', 'Category']);
+    sh.getRange('E:E').setNumberFormat('@');
+    sh.setFrozenRows(1);
+    try {
+      sh.getRange('B2:B').setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Pending', 'Rejected', 'Sent', 'Needs club email'], true).setAllowInvalid(true).build());
+    } catch (e) {}
+  }
+  return sh;
+}
+// §8.3.2 / §8.3.3: 1st offense warning, 2nd $50, 3rd $100, then doubling.
+function ladderAmount(n) { return n <= 1 ? 0 : n === 2 ? 50 : 100 * Math.pow(2, n - 3); }
+function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function finesUrl() { try { const sh = getFinesSheet(); return getLog().getUrl() + (sh.getSheetId ? '#gid=' + sh.getSheetId() : ''); } catch (e) { return ''; } }
+
+// Offense number for a club + category: earlier non-rejected fines this season, by match date, plus this one.
+function offenseNumber(rows, club, cat, date, id) {
+  const iso = v => String(v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : v).slice(0, 10);
+  const prior = rows.filter(r => String(r[FN.ID - 1]) !== String(id) && r[FN.CAT - 1] === cat && sameTeam(r[FN.CLUB - 1], club)
+    && !/^rejected/i.test(String(r[FN.STATUS - 1])) && iso(r[FN.DATE - 1]) >= CONFIG.FINES.SEASON_START
+    && (iso(r[FN.DATE - 1]) < iso(date) || (iso(r[FN.DATE - 1]) === iso(date) && String(r[FN.ID - 1]) < String(id))));
+  return prior.length + 1;
+}
+function fineAmount(type, n) { return type.ladder ? ladderAmount(n) : CONFIG.FINES.ROSTER_FINE; }
+
+// Called after a referee report is saved. Drafts one fine per club per offense type, then sends the heads-up.
+function queueFines(data, folderUrl) {
+  const f = data.fields, checks = data.checks || {};
+  if (/^not played/i.test(String(f.status || ''))) return [];
+  const problem = k => checks[k] && checks[k].v === 'problem';
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  const made = [];
+  try {
+    const sh = getFinesSheet(), rows = sh.getDataRange().getValues().slice(1);
+    const now = new Date(), sendAfter = new Date(now.getTime() + CONFIG.FINES.HOLD_HOURS * 3600e3);
+    FINE_TYPES.forEach(type => {
+      const bad = type.items.filter(problem);
+      if (!bad.length) return;
+      let clubs = [f.home];
+      if (type.team === 'rosterTeam') clubs = data.rosterTeam === 'both' ? [f.home, f.away] : data.rosterTeam === 'away' ? [f.away] : [f.home];
+      const details = bad.map(k => `${ITEM_LABEL[k] || k}${checks[k].d ? ': ' + checks[k].d : ''}`).join(' | ');
+      clubs.forEach(club => {
+        // one fine per club, offense type and match (a second report for the same match doesn't fine twice)
+        const dup = rows.concat(made.map(m => m.row)).some(r => r[FN.CAT - 1] === type.cat && sameTeam(r[FN.CLUB - 1], club)
+          && String(r[FN.DATE - 1]).slice(0, 10) === String(f.gameDate) && sameTeam(r[FN.HOME - 1], f.home) && sameTeam(r[FN.AWAY - 1], f.away)
+          && !/^rejected/i.test(String(r[FN.STATUS - 1])));
+        if (dup) return;
+        const id = 'F' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyMMdd') + '-' + newId().slice(0, 5);
+        const row = [now, 'Pending', sendAfter, f.division, f.gameDate, f.home, f.away, club, type.label, type.section, details,
+          f.refName, folderUrl, '', '', '', '', '', id, '', type.cat];
+        const n = offenseNumber(rows.concat(made.map(m => m.row)), club, type.cat, f.gameDate, id);
+        row[FN.NTH - 1] = n; row[FN.AMOUNT - 1] = fineAmount(type, n);
+        sh.appendRow(row);
+        made.push({ row, type, n });
+      });
+    });
+  } finally { lock.releaseLock(); }
+  if (made.length) sendFineHeadsUp(f, made);
+  return made;
+}
+function moneyText(n) { return n ? '$' + n : 'Warning (no fine)'; }
+function sendFineHeadsUp(f, made) {
+  const when = fmt(made[0].row[FN.SEND_AFTER - 1]), url = finesUrl();
+  const lines = made.map(m => `• ${m.row[FN.CLUB - 1]} – ${m.type.label} (${m.type.section}): ${ordinal(m.n)} offense this season → ${moneyText(m.row[FN.AMOUNT - 1])}\n    Referee: ${m.row[FN.DETAILS - 1]}`);
+  const commish = commissionersFor(f.division, f.home);
+  MailApp.sendEmail({ to: CONFIG.OFFICE_EMAIL, cc: [CONFIG.CC, commish].filter(Boolean).join(','), name: 'APSL Referee Reports',
+    subject: `Pending fine${made.length > 1 ? 's' : ''}: ${[...new Set(made.map(m => m.row[FN.CLUB - 1]))].join(', ')} – ${f.home} v ${f.away} (${f.gameDate})`,
+    body: `From ${f.refName}'s report for ${f.home} v ${f.away} on ${f.gameDate} (${f.division}):\n\n${lines.join('\n\n')}\n\n` +
+          `${made.length > 1 ? 'These are' : 'This is'} emailed to the club after ${when}.\n` +
+          `To stop one, change its Status to "Rejected" on the Fines sheet. To change an amount, fill in "Amount override".\n${url}` });
+}
+
+// Hourly trigger (installed by setup): emails every Pending fine whose hold has passed, oldest match first.
+function processFines() {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const sh = getFinesSheet(), rows = sh.getDataRange().getValues().slice(1), now = new Date();
+    const due = rows.map((r, i) => i).filter(i => /^pending$/i.test(String(rows[i][FN.STATUS - 1]).trim()) && new Date(rows[i][FN.SEND_AFTER - 1]) <= now)
+      .sort((a, b) => String(rows[a][FN.DATE - 1]).localeCompare(String(rows[b][FN.DATE - 1])) || String(rows[a][FN.ID - 1]).localeCompare(String(rows[b][FN.ID - 1])));
+    let sent = 0;
+    due.forEach(i => {
+      const r = rows[i], rowNum = i + 2, type = FINE_TYPES.find(t => t.cat === r[FN.CAT - 1]);
+      if (!type) return;
+      const n = offenseNumber(rows, r[FN.CLUB - 1], type.cat, r[FN.DATE - 1], r[FN.ID - 1]);
+      const override = r[FN.OVERRIDE - 1];
+      const amount = override !== '' && override != null && !isNaN(Number(override)) ? Number(override) : fineAmount(type, n);
+      sh.getRange(rowNum, FN.NTH).setValue(n); sh.getRange(rowNum, FN.AMOUNT).setValue(amount);
+      r[FN.NTH - 1] = n; r[FN.AMOUNT - 1] = amount;
+      const to = clubContacts(r[FN.CONF - 1], r[FN.CLUB - 1]);
+      if (!to) {
+        sh.getRange(rowNum, FN.STATUS).setValue('Needs club email'); r[FN.STATUS - 1] = 'Needs club email';
+        MailApp.sendEmail({ to: CONFIG.OFFICE_EMAIL, cc: CONFIG.CC, name: 'APSL Referee Reports',
+          subject: `Fine not sent – no email for ${r[FN.CLUB - 1]}`,
+          body: `The ${type.label} notice for ${r[FN.CLUB - 1]} (${r[FN.HOME - 1]} v ${r[FN.AWAY - 1]}, ${String(r[FN.DATE - 1]).slice(0, 10)}) couldn't be sent: ` +
+                `the Clubs tab of the settings sheet has no contact email for this club.\n\nAdd one in column C, then set the fine's Status back to "Pending" – it goes out within the hour.\n${finesUrl()}` });
+        return;
+      }
+      const notice = fineNotice(r, type, n, amount);
+      const commish = commissionersFor(r[FN.CONF - 1], r[FN.HOME - 1]);
+      MailApp.sendEmail({ to, cc: [CONFIG.OFFICE_EMAIL, CONFIG.CC, commish].filter(Boolean).join(','), replyTo: CONFIG.OFFICE_EMAIL,
+        name: 'APSL League Office', subject: notice.subject, body: notice.text, htmlBody: notice.html });
+      sh.getRange(rowNum, FN.STATUS).setValue('Sent'); sh.getRange(rowNum, FN.SENT_TO).setValue(to); sh.getRange(rowNum, FN.SENT_AT).setValue(now);
+      r[FN.STATUS - 1] = 'Sent';
+      sent++;
+    });
+    return { sent };
+  } finally { lock.releaseLock(); }
+}
+function fineNotice(r, type, n, amount) {
+  const club = r[FN.CLUB - 1], date = String(r[FN.DATE - 1]).slice(0, 10), match = `${r[FN.HOME - 1]} v ${r[FN.AWAY - 1]}`;
+  const due = Utilities.formatDate(new Date(Date.now() + CONFIG.FINES.PAY_DAYS * 864e5), Session.getScriptTimeZone(), 'EEEE, MMMM d, yyyy');
+  const items = String(r[FN.DETAILS - 1] || '').split(' | ').filter(Boolean);
+  const warning = amount === 0;
+  const subject = warning ? `APSL Warning – ${club}: ${type.label} (${match}, ${date})`
+    : `APSL Fine Notice – ${club}: $${amount} – ${type.label} (${match}, ${date})`;
+  const ladderNote = type.ladder ? `Under ${type.section}, a first offense is a warning, the second is a $50 fine, the third $100, and each offense after that doubles.` : '';
+  const para = [
+    `To ${club},`,
+    `The referee's report for ${match} on ${date} (${r[FN.CONF - 1]}) recorded that the following requirement was not met:`,
+    `ITEMS`,
+    `This is ${club}'s ${ordinal(n)} offense this season for ${type.noun}.`,
+    warning ? `This notice is a formal warning; there is no fine this time. ${ladderNote}`
+      : `Fine: $${amount} (${type.section}). Payment is due within ${CONFIG.FINES.PAY_DAYS} days, by ${due} (§1.4.2); a $30 late fee may apply after that. ${CONFIG.FINES.PAYMENT_NOTE}` + (ladderNote ? `\n\n${ladderNote}` : ''),
+    `If you believe this is incorrect, reply to this email. Appeals follow §8.6 of the APSL Regulations & Club Manual.`,
+    `APSL League Office`];
+  const text = para.join('\n\n').replace('ITEMS', items.map(x => '  • ' + x).join('\n')) + `\n\nRef: ${r[FN.ID - 1]}`;
+  const h = escapeHtml;
+  const html = `<div style="font:14px/1.5 Arial;color:#1f1f1f;max-width:620px">` +
+    `<div style="border-bottom:3px solid #ec0332;padding-bottom:6px;margin-bottom:12px;font:800 16px Arial;color:#003da6">APSL ${warning ? 'Warning' : 'Fine Notice'}</div>` +
+    para.map(p => p === 'ITEMS' ? `<ul style="margin:0 0 12px;padding-left:20px">${items.map(x => `<li>${h(x)}</li>`).join('')}</ul>`
+      : `<p style="margin:0 0 12px">${h(p).replace(/\n\n/g, '</p><p style="margin:0 0 12px">').replace(/^(Fine: \$\d+)/, '<b>$1</b>')}</p>`).join('') +
+    `<p style="font-size:12px;color:#5f6675">Ref: ${h(r[FN.ID - 1])}</p></div>`;
+  return { subject, text, html };
+}
+// Contact emails for a club (Clubs tab, column C). Conference rows match like the Assignors tab.
+function clubContacts(conference, club) {
+  const rows = getClubsSheet().getDataRange().getValues().slice(1);
+  const k = nameKey(conference);
+  const mine = rows.filter(r => sameTeam(r[1], club) && (!nameKey(r[0]) || k.startsWith(nameKey(r[0])) || nameKey(r[0]).startsWith(k)));
+  const list = (mine.length ? mine : rows.filter(r => sameTeam(r[1], club))).map(r => String(r[2] || '')).join(',').split(/[,;\s]+/).filter(isEmail);
+  return [...new Set(list)].join(',');
+}
+function nameKey(s) { return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+function sameTeam(a, b) {
+  const x = nameKey(a), y = nameKey(b);
+  return !!x && !!y && (x === y || (x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x))));
+}
+
 /* ---------------- helpers ---------------- */
 function validate(d) {
   const f = d && d.fields;
@@ -305,7 +490,9 @@ function getSettings() {
   return ss;
 }
 // Assignor + commissioner emails for a report. A home-team row overrides the conference row for that column.
-function assignorsFor(conference, home) {
+function assignorsFor(conference, home) { return settingsEmails(conference, home, [2, 3]); }
+function commissionersFor(conference, home) { return settingsEmails(conference, home, [3]); }
+function settingsEmails(conference, home, cols) {
   try {
     const rows = getSettings().getSheetByName('Assignors').getDataRange().getValues().slice(1);
     const norm = s => String(s || '').trim().toLowerCase();
@@ -329,7 +516,7 @@ function assignorsFor(conference, home) {
       const best = Math.max(0, ...filled.map(r => key(r[0]).length));
       return emails(filled.filter(r => key(r[0]).length === best), i);
     };
-    return [...new Set([...forCol(2), ...forCol(3)])].join(',');
+    return [...new Set(cols.flatMap(forCol))].join(',');
   } catch (e) { console.error(e); return ''; }
 }
 function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -339,7 +526,10 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;
 
 // Run once from the editor to grant permissions and create the Drive folder + log sheet.
 function setup() {
-  getRootFolder(); getLog(); getPrematchSheet(); getSettings(); getClubsSheet(); MailApp.getRemainingDailyQuota();
-  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'sendReminders'))
-    ScriptApp.newTrigger('sendReminders').timeBased().everyHours(1).create();
+  getRootFolder(); getLog(); getPrematchSheet(); getFinesSheet(); getSettings(); MailApp.getRemainingDailyQuota();
+  const clubs = getClubsSheet();
+  if (!String(clubs.getRange(1, 3).getValue() || '').trim()) clubs.getRange(1, 3).setValue(CLUB_EMAIL_HEADER);   // older Clubs tabs
+  ['sendReminders', 'processFines'].forEach(fn => {
+    if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === fn)) ScriptApp.newTrigger(fn).timeBased().everyHours(1).create();
+  });
 }
