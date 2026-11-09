@@ -153,7 +153,7 @@ function handle(data) {
     // Office email
     const flag = data.supplementalReasons ? ` [SUPPLEMENTAL: ${data.supplementalReasons}]` : '';
     const subject = `Ref Report ${f.gameNo ? '#' + f.gameNo + ' ' : ''}– ${f.home} ${f.homeScore}-${f.awayScore} ${f.away} (${f.gameDate})${flag}`;
-    const pm = data.prematchId ? markSubmitted(data.prematchId) : null;
+    const pm = markSubmitted(data.prematchId, f);
     const pmLine = pm ? `Pre-match checklist saved to the league log ${fmt(pm.firstSaved)}` +
       (pm.kickoffMs ? (pm.firstSaved.getTime() <= pm.kickoffMs ? ' (before scheduled kickoff).' : ' – <b>after scheduled kickoff</b>.') : '.')
       : 'Pre-match checklist was <b>not</b> saved to the league log before this report.';
@@ -223,7 +223,16 @@ function savePrematch(payloadJson) {
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     const sh = getPrematchSheet(), now = new Date();
-    let row = findPrematchRow(sh, d.id), id = d.id, isNew = !row;
+    let row = findPrematchRow(sh, d.id), id = d.id;
+    // Started again from scratch (another phone or browser)? Reuse this referee's open checklist for the same match,
+    // so there is one row, one resume link and one reminder.
+    if (!row) {
+      const n = sh.getLastRow() - 1, rows = n >= 1 ? sh.getRange(2, 1, n, PM.REMINDED).getValues() : [];
+      const i = rows.findIndex(r => !r[PM.SUBMITTED - 1] && String(r[PM.REF_EMAIL - 1]).trim().toLowerCase() === String(sm.refEmail).trim().toLowerCase()
+        && sameMatch(pmDay(r), r[PM.HOME - 1], r[PM.AWAY - 1], sm.gameDate, sm.home, sm.away));
+      if (i >= 0) { row = i + 2; id = String(rows[i][PM.ID - 1]); }
+    }
+    const isNew = !row;
     if (isNew) { id = newId(); row = sh.getLastRow() + 1; sh.getRange(row, PM.ID).setValue(id); sh.getRange(row, PM.FIRST).setValue(now); }
     const vals = [[now, `${sm.gameDate} ${sm.kickoff}`, d.kickoffMs || '', sm.division, sm.home, sm.away, sm.refName, sm.refEmail, sm.problems || 'None']];
     sh.getRange(row, PM.LAST, 1, vals[0].length).setValues(vals);
@@ -249,26 +258,43 @@ function loadPrematch(id) {
   const iso = v => v instanceof Date ? v.toISOString() : '';
   return { ok: true, state, savedAt: iso(r[PM.FIRST - 1]), clientAt: String(r[PM.CLIENT_AT - 1] || ''), submitted: iso(r[PM.SUBMITTED - 1]) };
 }
-function markSubmitted(id) {
-  const sh = getPrematchSheet(), row = findPrematchRow(sh, id);
-  if (!row) return null;
-  sh.getRange(row, PM.SUBMITTED).setValue(new Date());
-  const r = sh.getRange(row, 1, 1, PM.KICKOFF_MS).getValues()[0];
-  return { firstSaved: new Date(r[PM.FIRST - 1]), kickoffMs: Number(r[PM.KICKOFF_MS - 1]) || 0 };
+// Marks the report's own checklist row submitted, plus any other checklist rows for the same match (e.g. the referee
+// filled step 1 again on another device), so none of them triggers a reminder. Returns the report's own row.
+function markSubmitted(id, f) {
+  const sh = getPrematchSheet(), n = sh.getLastRow() - 1, now = new Date();
+  if (n < 1) return null;
+  let out = null;
+  sh.getRange(2, 1, n, PM.REMINDED).getValues().forEach((r, i) => {
+    const mine = !!id && String(r[PM.ID - 1]) === String(id);
+    const same = !!f && !!Number(r[PM.KICKOFF_MS - 1]) && sameMatch(pmDay(r), r[PM.HOME - 1], r[PM.AWAY - 1], f.gameDate, f.home, f.away);
+    if (mine || (same && !r[PM.SUBMITTED - 1])) sh.getRange(i + 2, PM.SUBMITTED).setValue(now);
+    if (mine) out = { firstSaved: new Date(r[PM.FIRST - 1]), kickoffMs: Number(r[PM.KICKOFF_MS - 1]) || 0 };
+  });
+  return out;
 }
+// Match identity: date + home + away (names compared loosely, like the rest of the script).
+function isoDay(v) { return v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(v || '').trim().slice(0, 10); }
+function pmDay(r) { const ko = Number(r[PM.KICKOFF_MS - 1]); return ko ? Utilities.formatDate(new Date(ko), Session.getScriptTimeZone(), 'yyyy-MM-dd') : ''; }
+function sameMatch(d1, h1, a1, d2, h2, a2) { return !!isoDay(d1) && isoDay(d1) === isoDay(d2) && sameTeam(h1, h2) && sameTeam(a1, a2); }
 // Hourly trigger (installed by setup): one reminder per match if the report isn't in.
 function sendReminders() {
   const sh = getPrematchSheet(), n = sh.getLastRow() - 1;
   if (n < 1) return;
   const rows = sh.getRange(2, 1, n, PM.REMINDED).getValues(), now = Date.now();
+  let reports = null;   // the main log, read only if a reminder is due
   rows.forEach((r, i) => {
     const ko = Number(r[PM.KICKOFF_MS - 1]);
     if (!ko || r[PM.SUBMITTED - 1] || r[PM.REMINDED - 1] || !isEmail(r[PM.REF_EMAIL - 1])) return;
     if (now < ko + CONFIG.REMINDER_AFTER_HOURS * 3600e3 || now > ko + 7 * 24 * 3600e3) return;
+    // Already reported, from a different checklist or none at all: don't remind, and record why.
+    reports = reports || getLog().getSheets()[0].getDataRange().getValues().slice(1);
+    if (reports.some(x => sameMatch(x[2], x[4], x[7], pmDay(r), r[PM.HOME - 1], r[PM.AWAY - 1]))) {
+      sh.getRange(i + 2, PM.SUBMITTED).setValue('Report found in log'); return;
+    }
     MailApp.sendEmail({
       to: r[PM.REF_EMAIL - 1], name: 'APSL Referee Reports',
       subject: `Reminder: match report due – ${r[PM.HOME - 1]} v ${r[PM.AWAY - 1]}`,
-      body: `Hi ${r[PM.REF - 1]} – we haven't received your match report for ${r[PM.HOME - 1]} v ${r[PM.AWAY - 1]} (${r[PM.KICKOFF - 1]}). ` +
+      body: `Hi ${r[PM.REF - 1]} – we haven't received your match report for ${r[PM.HOME - 1]} v ${r[PM.AWAY - 1]} (${fmt(ko)}). ` +
             `Reports are due within 24 hours of the final whistle.\n\nFinish it here – your pre-match checklist is already filled in:\n${resumeLink(r[PM.ID - 1])}`,
     });
     sh.getRange(i + 2, PM.REMINDED).setValue(new Date());
